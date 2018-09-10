@@ -1,4 +1,6 @@
 #include "TransformObject.h"
+#include "../../ImGui/ImGuizmo.h"
+#include "../../Renderer.h"
 
 using namespace DirectX::SimpleMath;
 
@@ -19,4 +21,21 @@ Quaternion TransformObject::BuildQuaternion() const
 Matrix TransformObject::BuildTransform() const
 {
 	return Matrix::CreateScale(this->GetScale()) * Matrix::CreateFromQuaternion(this->BuildQuaternion()) * Matrix::CreateTranslation(this->GetPosition());
+}
+
+void TransformObject::OnGUI()
+{
+	SceneObject::OnGUI();
+
+	Matrix view = Renderer::GetView();
+	Matrix projection = Renderer::GetProjection();
+	Matrix matrix = this->BuildTransform();
+	ImGuizmo::Manipulate((float*)view.m, (float*)projection.m, ImGuizmo::OPERATION::TRANSLATE, ImGuizmo::MODE::LOCAL, (float*)matrix.m);
+	Vector3 translation;
+	Vector3 scale;
+	Vector3 rotation;
+	ImGuizmo::DecomposeMatrixToComponents((float*)matrix.m, (float*)&translation, (float*)&rotation, (float*)&scale);
+	this->SetPosition(translation);
+	this->SetRotation(rotation * PI / 180.0f);
+	this->SetScale(scale);
 }

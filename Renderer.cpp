@@ -6,6 +6,7 @@
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx12.h"
 #include "ImGui/imgui_impl_win32.h"
+#include "ImGui/ImGuizmo.h"
 #include "Render/ConstantBuffer.h"
 
 //using namespace DirectX::SimpleMath;
@@ -47,6 +48,7 @@ ID3D12Fence* UploadFence = nullptr;
 unsigned long long int UploadFenceValue = 0;
 
 DirectX::SimpleMath::Matrix View = DirectX::SimpleMath::Matrix::Identity;
+DirectX::SimpleMath::Matrix Projection = DirectX::SimpleMath::Matrix::Identity;
 
 struct WorldConstants
 {
@@ -387,6 +389,8 @@ HRESULT Renderer::Resize(const int& bufferWidth, const int& bufferHeight)
 
 		ImGui_ImplDX12_CreateDeviceObjects();
 
+		ImGuizmo::SetRect(0, 0, bufferWidth, bufferHeight);
+
 		return hr;
 	}
 	else
@@ -406,6 +410,8 @@ void Renderer::BeginScene()
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
+	ImGuizmo::SetOrthographic(false);
+	ImGuizmo::BeginFrame();
 
 	BufferIndex = SwapChain->GetCurrentBackBufferIndex();
 	CommandAllocator->Reset();
@@ -428,6 +434,8 @@ void Renderer::BeginScene()
 	CommandList->OMSetRenderTargets(1, &backbuffer, false, nullptr);
 	CommandList->ClearRenderTargetView(backbuffer, ClearColor, 0, nullptr);
 	CommandList->SetDescriptorHeaps(1, &SRVHeap);
+
+	Projection = DirectX::SimpleMath::Matrix::CreatePerspectiveFieldOfView(3.1415926535f/3.0f, (float)Window::GetClientWidth() / Window::GetClientHeight(), 0.5f, 1000.0f);
 }
 
 void Renderer::EndScene()
@@ -637,10 +645,20 @@ void Renderer::SetView(const DirectX::SimpleMath::Matrix& view)
 	View = view;
 }
 
+DirectX::SimpleMath::Matrix Renderer::GetView()
+{
+	return View;
+}
+
+DirectX::SimpleMath::Matrix Renderer::GetProjection()
+{
+	return Projection;
+}
+
 void Renderer::Render(RenderMesh* const mesh, const DirectX::SimpleMath::Matrix& transform)
 {
 	WorldConstants worldConstants = { };
-	worldConstants.Projection = DirectX::SimpleMath::Matrix::CreatePerspectiveFieldOfView(3.1415926535f/3.0f, (float)Window::GetClientWidth() / Window::GetClientHeight(), 0.5f, 1000.0f);
+	worldConstants.Projection = Projection;
 	worldConstants.Model = transform;
 	worldConstants.View = View;
 

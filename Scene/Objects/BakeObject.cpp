@@ -59,7 +59,7 @@ void BakeObject::OnGUI()
 			ImGui::TreePop();
 		}
 	}
-	SceneObject::OnGUI();
+	TransformObject::OnGUI();
 }
 
 void BakeObject::Render() const

@@ -7,6 +7,8 @@
 
 // Handles all the global DirectX state.
 
+const float PI = 3.1415926535897932384626433832795f;
+
 namespace Renderer
 {
 	extern IDXGISwapChain3* SwapChain;
@@ -33,6 +35,10 @@ namespace Renderer
 	HRESULT UploadData(ID3D12Resource* const destination, void* const data, const size_t& length);
 
 	void SetView(const DirectX::SimpleMath::Matrix& view);
+
+	DirectX::SimpleMath::Matrix GetView();
+
+	DirectX::SimpleMath::Matrix GetProjection();
 
 	void Render(RenderMesh* const mesh, const DirectX::SimpleMath::Matrix& transform);
 }

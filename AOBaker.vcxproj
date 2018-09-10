@@ -153,6 +153,7 @@
   <ItemGroup>
     <ClCompile Include="AOBaker.cpp" />
     <ClCompile Include="ImGui\imgui.cpp" />
+    <ClCompile Include="ImGui\ImGuizmo.cpp" />
     <ClCompile Include="ImGui\imgui_demo.cpp" />
     <ClCompile Include="ImGui\imgui_draw.cpp" />
     <ClCompile Include="ImGui\imgui_impl_dx12.cpp" />
@@ -179,6 +180,7 @@
     <ClInclude Include="AOBaker.h" />
     <ClInclude Include="ImGui\imconfig.h" />
     <ClInclude Include="ImGui\imgui.h" />
+    <ClInclude Include="ImGui\ImGuizmo.h" />
     <ClInclude Include="ImGui\imgui_impl_dx12.h" />
     <ClInclude Include="ImGui\imgui_impl_win32.h" />
     <ClInclude Include="ImGui\imgui_internal.h" />

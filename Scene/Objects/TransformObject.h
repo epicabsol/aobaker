@@ -18,6 +18,7 @@ public:
 	TransformObject(const std::wstring& name, const DirectX::SimpleMath::Vector3& position, const DirectX::SimpleMath::Vector3& rotation, const DirectX::SimpleMath::Vector3& scale);
 	DirectX::SimpleMath::Quaternion BuildQuaternion() const;
 	DirectX::SimpleMath::Matrix BuildTransform() const;
+	virtual void OnGUI() override;
 
 private:
 	Vector3Property Position;

@@ -5,6 +5,7 @@
 #include "ImGui/imgui.h"
 #include "Window.h"
 #include <string>
+#include <vector>
 
 using namespace DirectX::SimpleMath;
 
@@ -12,11 +13,21 @@ const std::wstring WorldVertexShaderFilename = L"data/WorldVertexShader.cso";
 const std::wstring ScreenVertexShaderFilename = L"data/ScreenVertexShader.cso";
 const std::wstring ColorPixelShaderFilename = L"data/ColorPixelShader.cso";
 
+bool IsLeftMouseDown = false;
+bool IsMiddleMouseDown = false;
+bool IsRightMouseDown = false;
+
+bool IsKeyDown[256];
+
+float CameraSpeed = 10.0f;
+
 RenderShader* WorldShader = nullptr;
 
 RenderMaterial* TestMaterial = nullptr;
 
 RenderMesh* TestMesh = nullptr;
+
+Scene* CurrentScene = nullptr;
 
 const D3D12_INPUT_ELEMENT_DESC WorldInputElements[] = {
 	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -31,10 +42,30 @@ RenderVertex TestMeshVertices[] = {
 	{ Vector3(1, 0, 0), Vector3(0, 0, 1), Vector2(1, 1), Vector4(1, 1, 1, 1) }
 };
 
-int TestMeshIndices[] = {
+unsigned int TestMeshIndices[] = {
 	0, 1, 2,
 	0, 2, 1
 };
+
+Scene* GetCurrentScene()
+{
+	return CurrentScene;
+}
+
+RenderShader* GetWorldShader()
+{
+	return WorldShader;
+}
+
+RenderMaterial* GetTestMaterial()
+{
+	return TestMaterial;
+}
+
+RenderMesh* GetTestMesh()
+{
+	return TestMesh;
+}
 
 void Initialize()
 {
@@ -94,11 +125,48 @@ void Initialize()
 	{
 		OutputDebugStringW(L"Failed to upload test mesh buffer.");
 	}
+
+	CurrentScene = new Scene();
+	//CurrentScene->AddObject(new BakeObject(L"Object 1"));
+	//CurrentScene->AddObject(new BakeObject(L"Object 2"));
+	BakeObject* cube = new BakeObject(L"Cube");
+	cube->LoadFromCube();
+	CurrentScene->AddObject(cube);
 }
 
 void Update(const float& dT)
 {
+	Matrix cameraRotation = Matrix::CreateRotationX(-CurrentScene->GetCameraPitch()) * Matrix::CreateRotationY(-CurrentScene->GetCameraYaw());
+	Vector3 cameraPosition = CurrentScene->GetCameraPosition();
+	
+	Vector3 forward = Vector3::TransformNormal(Vector3(0, 0, -1), cameraRotation);
+	Vector3 right = Vector3::TransformNormal(Vector3(1, 0, 0), cameraRotation);
+	if (IsKeyDown['W'])
+	{
+		cameraPosition += forward * dT * CameraSpeed;
+	}
+	if (IsKeyDown['S'])
+	{
+		cameraPosition -= forward * dT * CameraSpeed;
+	}
+	if (IsKeyDown['D'])
+	{
+		cameraPosition += right * dT * CameraSpeed;
+	}
+	if (IsKeyDown['A'])
+	{
+		cameraPosition -= right * dT * CameraSpeed;
+	}
+	if (IsKeyDown[VK_LSHIFT])
+	{
+		cameraPosition -= Vector3(0, dT * CameraSpeed, 0);
+	}
+	if (IsKeyDown[VK_SPACE])
+	{
+		cameraPosition += Vector3(0, dT * CameraSpeed, 0);
+	}
 
+	CurrentScene->SetCameraPosition(cameraPosition);
 }
 
 float elapsed = 0.0f;
@@ -108,8 +176,14 @@ void Render()
 
 	Renderer::BeginScene();
 
-	Renderer::Render(TestMesh, DirectX::SimpleMath::Matrix::CreateRotationY(3.1415926535f / 4.0f * elapsed));
-	Renderer::Render(TestMesh, DirectX::SimpleMath::Matrix::CreateRotationY(3.1415926535f / 4.0f * elapsed + 3.1415f / 2.0f));
+	//CurrentScene->SetCameraYaw(elapsed);
+	Matrix view = Matrix::CreateTranslation(-CurrentScene->GetCameraPosition()) * Matrix::CreateRotationY(CurrentScene->GetCameraYaw()) * Matrix::CreateRotationX(CurrentScene->GetCameraPitch());
+	Renderer::SetView(view);
+
+	//Renderer::Render(TestMesh, DirectX::SimpleMath::Matrix::CreateRotationY(3.1415926535f / 4.0f * elapsed));
+	//Renderer::Render(TestMesh, DirectX::SimpleMath::Matrix::Identity);
+	
+	CurrentScene->Render();
 
 	// Menu bar
 	if (ImGui::BeginMainMenuBar())
@@ -162,19 +236,90 @@ void Render()
 		ImGui::EndMainMenuBar();
 	}
 
-	// 
-	ImGui::SetNextWindowSizeConstraints(ImVec2(100.0f, Window::GetClientHeight()), ImVec2(1000.0f, Window::GetClientHeight()));
-	if (ImGui::Begin(""))
+	// Models window
+	//ImGui::SetNextWindowSizeConstraints(ImVec2(100.0f, Window::GetClientHeight()), ImVec2(1000.0f, Window::GetClientHeight()));
+	if (ImGui::Begin("Models"))
 	{
-		ImGui::Button("Thing");
+		CurrentScene->DrawTreeGUI();
 	}
 	ImGui::End();
 
+	// Properties window
+	if (ImGui::Begin("Properties"))
+	{
+		CurrentScene->DrawPropertiesGUI();
+	}
+	ImGui::End();
 	//ImGui::Button("Do Thing", ImVec2(300, 60));
 
 	Renderer::EndScene();
 
 	Renderer::Present();
+}
+
+void MouseDown(const int& button, const int& x, const int& y)
+{
+	if (ImGui::GetIO().WantCaptureMouse)
+		return;
+
+	if (button == 0)
+		IsLeftMouseDown = true;
+	else if (button == 1)
+		IsMiddleMouseDown = true;
+	else if (button == 2)
+		IsRightMouseDown = true;
+}
+
+int LastMouseX = 0;
+int LastMouseY = 0;
+void MouseMove(const int& x, const int& y)
+{
+	if (ImGui::GetIO().WantCaptureMouse)
+		return;
+
+	if (IsLeftMouseDown)
+	{
+		float yaw = CurrentScene->GetCameraYaw();
+		yaw += (x - LastMouseX) * 0.007f;
+		CurrentScene->SetCameraYaw(yaw);
+
+		float pitch = CurrentScene->GetCameraPitch();
+		pitch += (y - LastMouseY) * 0.007f;
+		CurrentScene->SetCameraPitch(pitch);
+	}
+
+
+	LastMouseX = x;
+	LastMouseY = y;
+}
+
+void MouseUp(const int& button, const int& x, const int& y)
+{
+	if (ImGui::GetIO().WantCaptureMouse)
+		return;
+	
+	if (button == 0)
+		IsLeftMouseDown = false;
+	else if (button == 1)
+		IsMiddleMouseDown = false;
+	else if (button == 2)
+		IsRightMouseDown = false;
+}
+
+void KeyDown(const int& vkey)
+{
+	if (ImGui::GetIO().WantCaptureKeyboard)
+		return;
+
+	IsKeyDown[vkey] = true;
+}
+
+void KeyUp(const int& vkey)
+{
+	if (ImGui::GetIO().WantCaptureKeyboard)
+		return;
+
+	IsKeyDown[vkey] = false;
 }
 
 void Dispose()

@@ -25,12 +25,12 @@ public:
 class RenderMesh
 {
 public:
-	RenderMesh(RenderMaterial* const material, const PrimitiveType& type, RenderVertex* const vertices, const int& vertexCount, int* const indices, const int& indexCount);
+	RenderMesh(RenderMaterial* const material, const PrimitiveType& type, RenderVertex* const vertices, const int& vertexCount, unsigned int* const indices, const int& indexCount);
 	RenderMaterial* GetMaterial() const;
 	int GetVertexCount() const;
 	RenderVertex* GetVertices() const;
 	int GetIndexCount() const;
-	int* GetIndices() const;
+	unsigned int* GetIndices() const;
 	PrimitiveType GetPrimitiveType() const;
 	D3D12_VERTEX_BUFFER_VIEW* GetVertexBufferView();
 	D3D12_INDEX_BUFFER_VIEW* GetIndexBufferView();
@@ -42,7 +42,7 @@ private:
 	int VertexCount = 0;
 	RenderVertex* Vertices = { };
 	int IndexCount = 0;
-	int* Indices = { };
+	unsigned int* Indices = { };
 	PrimitiveType Type = PrimitiveType::Triangle;
 
 	ID3D12Resource1* VertexBuffer = nullptr;

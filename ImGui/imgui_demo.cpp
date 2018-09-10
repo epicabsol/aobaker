@@ -430,7 +430,7 @@ void ImGui::ShowDemoWindow(bool* p_open)
             if (ImGui::TreeNode("Basic trees"))
             {
                 for (int i = 0; i < 5; i++)
-                    if (ImGui::TreeNode((void*)(intptr_t)i, "Child %d", i))
+                    if (ImGui::TreeNode((void*)(intptr_t)i, nullptr, "Child %d", i))
                     {
                         ImGui::Text("blah blah");
                         ImGui::SameLine();
@@ -459,7 +459,7 @@ void ImGui::ShowDemoWindow(bool* p_open)
                     if (i < 3)
                     {
                         // Node
-                        bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, "Selectable Node %d", i);
+                        bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)i, nullptr, node_flags, "Selectable Node %d", i);
                         if (ImGui::IsItemClicked())
                             node_clicked = i;
                         if (node_open)
@@ -472,7 +472,7 @@ void ImGui::ShowDemoWindow(bool* p_open)
                     {
                         // Leaf: The only reason we have a TreeNode at all is to allow selection of the leaf. Otherwise we can use BulletText() or TreeAdvanceToLabelPos()+Text().
                         node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-                        ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, "Selectable Leaf %d", i);
+                        ImGui::TreeNodeEx((void*)(intptr_t)i, nullptr, node_flags, "Selectable Leaf %d", i);
                         if (ImGui::IsItemClicked())
                             node_clicked = i;
                     }
@@ -2434,11 +2434,11 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         ImGui::TreePop();
     }
 
-    bool fonts_opened = ImGui::TreeNode("Fonts", "Fonts (%d)", ImGui::GetIO().Fonts->Fonts.Size);
+    bool fonts_opened = ImGui::TreeNode("Fonts", nullptr, "Fonts (%d)", ImGui::GetIO().Fonts->Fonts.Size);
     if (fonts_opened)
     {
         ImFontAtlas* atlas = ImGui::GetIO().Fonts;
-        if (ImGui::TreeNode("Atlas texture", "Atlas texture (%dx%d pixels)", atlas->TexWidth, atlas->TexHeight))
+        if (ImGui::TreeNode("Atlas texture", nullptr, "Atlas texture (%dx%d pixels)", atlas->TexWidth, atlas->TexHeight))
         {
             ImGui::Image(atlas->TexID, ImVec2((float)atlas->TexWidth, (float)atlas->TexHeight), ImVec2(0,0), ImVec2(1,1), ImColor(255,255,255,255), ImColor(255,255,255,128));
             ImGui::TreePop();
@@ -2448,7 +2448,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         {
             ImFont* font = atlas->Fonts[i];
             ImGui::PushID(font);
-            bool font_details_opened = ImGui::TreeNode(font, "Font %d: \'%s\', %.2f px, %d glyphs", i, font->ConfigData ? font->ConfigData[0].Name : "", font->FontSize, font->Glyphs.Size);
+            bool font_details_opened = ImGui::TreeNode(font, nullptr, "Font %d: \'%s\', %.2f px, %d glyphs", i, font->ConfigData ? font->ConfigData[0].Name : "", font->FontSize, font->Glyphs.Size);
             ImGui::SameLine(); if (ImGui::SmallButton("Set as default")) ImGui::GetIO().FontDefault = font;
             if (font_details_opened)
             {
@@ -2464,7 +2464,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
                 for (int config_i = 0; config_i < font->ConfigDataCount; config_i++)
                     if (ImFontConfig* cfg = &font->ConfigData[config_i])
                         ImGui::BulletText("Input %d: \'%s\', Oversample: (%d,%d), PixelSnapH: %d", config_i, cfg->Name, cfg->OversampleH, cfg->OversampleV, cfg->PixelSnapH);
-                if (ImGui::TreeNode("Glyphs", "Glyphs (%d)", font->Glyphs.Size))
+                if (ImGui::TreeNode("Glyphs", nullptr, "Glyphs (%d)", font->Glyphs.Size))
                 {
                     // Display all glyphs of the fonts in separate pages of 256 characters
                     for (int base = 0; base < 0x10000; base += 256)
@@ -2472,7 +2472,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
                         int count = 0;
                         for (int n = 0; n < 256; n++)
                             count += font->FindGlyphNoFallback((ImWchar)(base + n)) ? 1 : 0;
-                        if (count > 0 && ImGui::TreeNode((void*)(intptr_t)base, "U+%04X..U+%04X (%d %s)", base, base+255, count, count > 1 ? "glyphs" : "glyph"))
+                        if (count > 0 && ImGui::TreeNode((void*)(intptr_t)base, nullptr, "U+%04X..U+%04X (%d %s)", base, base+255, count, count > 1 ? "glyphs" : "glyph"))
                         {
                             float cell_size = font->FontSize * 1;
                             float cell_spacing = style.ItemSpacing.y;
@@ -3086,7 +3086,7 @@ static void ShowExampleAppPropertyEditor(bool* p_open)
         {
             ImGui::PushID(uid);                      // Use object uid as identifier. Most commonly you could also use the object pointer as a base ID.
             ImGui::AlignTextToFramePadding();  // Text and Tree nodes are less high than regular widgets, here we add vertical spacing to make the tree lines equal high.
-            bool node_open = ImGui::TreeNode("Object", "%s_%u", prefix, uid);
+            bool node_open = ImGui::TreeNode("Object", nullptr, "%s_%u", prefix, uid);
             ImGui::NextColumn();
             ImGui::AlignTextToFramePadding();
             ImGui::Text("my sailor is rich");
@@ -3105,7 +3105,7 @@ static void ShowExampleAppPropertyEditor(bool* p_open)
                     {
                         // Here we use a TreeNode to highlight on hover (we could use e.g. Selectable as well)
                         ImGui::AlignTextToFramePadding();
-                        ImGui::TreeNodeEx("Field", ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_Bullet, "Field_%d", i);
+                        ImGui::TreeNodeEx("Field", nullptr, ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_Bullet, "Field_%d", i);
                         ImGui::NextColumn();
                         ImGui::PushItemWidth(-1);
                         if (i >= 5)

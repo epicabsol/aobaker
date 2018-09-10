@@ -1,3 +1,4 @@
+#include <windowsx.h> // For GET_X_LPARAM and GET_Y_LPARAM
 #include "AOBaker.h"
 #include "Window.h"
 #include "Renderer.h"
@@ -30,6 +31,42 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			Renderer::Resize(Window::GetClientWidth(), Window::GetClientHeight());
 		}
 		return DefWindowProc(hWnd, msg, wParam, lParam);
+	}
+	else if (msg == WM_LBUTTONDOWN)
+	{
+		MouseDown(0, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+	}
+	else if (msg == WM_MBUTTONDOWN)
+	{
+		MouseDown(1, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+	}
+	else if (msg == WM_RBUTTONDOWN)
+	{
+		MouseDown(2, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+	}
+	else if (msg == WM_LBUTTONUP)
+	{
+		MouseUp(0, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+	}
+	else if (msg == WM_MBUTTONUP)
+	{
+		MouseUp(1, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+	}
+	else if (msg == WM_RBUTTONUP)
+	{
+		MouseUp(2, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+	}
+	else if (msg == WM_MOUSEMOVE)
+	{
+		MouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+	}
+	else if (msg == WM_KEYDOWN)
+	{
+		KeyDown(wParam);
+	}
+	else if (msg == WM_KEYUP)
+	{
+		KeyUp(wParam);
 	}
 	else 
 	{
@@ -97,9 +134,15 @@ void Window::Show()
 	ShowWindow(GetHandle(), SW_SHOW);
 }
 
+LARGE_INTEGER LastCounterValue = { };
+LARGE_INTEGER CounterFrequency = { };
 void Window::MessageLoop()
 {
+	QueryPerformanceFrequency(&CounterFrequency);
+
 	MSG msg = {};
+	float dt = 0.0f;
+	LARGE_INTEGER counterValue = { };
 	while (!Exit)
 	{
 		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -113,8 +156,13 @@ void Window::MessageLoop()
 			}
 		}
 
-
-		Update(0.0f); // TODO: Determine dT
+		QueryPerformanceCounter(&counterValue);
+		if (LastCounterValue.QuadPart > 0)
+		{
+			dt = (counterValue.QuadPart - LastCounterValue.QuadPart) / (float)CounterFrequency.QuadPart;
+		}
+		LastCounterValue = counterValue;
+		Update(dt);
 		Render();
 	}
 }

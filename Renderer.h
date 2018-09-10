@@ -32,5 +32,7 @@ namespace Renderer
 
 	HRESULT UploadData(ID3D12Resource* const destination, void* const data, const size_t& length);
 
+	void SetView(const DirectX::SimpleMath::Matrix& view);
+
 	void Render(RenderMesh* const mesh, const DirectX::SimpleMath::Matrix& transform);
 }

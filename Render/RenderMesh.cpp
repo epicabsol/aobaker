@@ -19,7 +19,7 @@ RenderVertex::RenderVertex(const Vector3& position, const Vector3& normal, const
 	this->Color = color;
 }
 
-RenderMesh::RenderMesh(RenderMaterial* const material, const PrimitiveType& type, RenderVertex* const vertices, const int& vertexCount, int* const indices, const int& indexCount)
+RenderMesh::RenderMesh(RenderMaterial* const material, const PrimitiveType& type, RenderVertex* const vertices, const int& vertexCount, unsigned int* const indices, const int& indexCount)
 {
 	this->Material = material;
 	this->Type = type;
@@ -33,7 +33,7 @@ RenderMesh::RenderMesh(RenderMaterial* const material, const PrimitiveType& type
 	this->IndexCount = indexCount;
 	if (this->IndexCount > 0)
 	{
-		this->Indices = new int[this->IndexCount];
+		this->Indices = new unsigned int[this->IndexCount];
 		for (int i = 0; i < this->IndexCount; i++)
 			this->Indices[i] = indices[i];
 	}
@@ -59,7 +59,7 @@ int RenderMesh::GetIndexCount() const
 	return this->IndexCount;
 }
 
-int* RenderMesh::GetIndices() const
+unsigned int* RenderMesh::GetIndices() const
 {
 	return this->Indices;
 }
@@ -121,6 +121,7 @@ HRESULT RenderMesh::UploadBuffers()
 	this->IndexBufferView.SizeInBytes = sizeof(int) * this->GetIndexCount();
 	this->IndexBufferView.Format = DXGI_FORMAT_R32_UINT;
 	this->IndexBufferView.BufferLocation = this->IndexBuffer->GetGPUVirtualAddress();
+	return S_OK;
 }
 
 void RenderMesh::Dispose()

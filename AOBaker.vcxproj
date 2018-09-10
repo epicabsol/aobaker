@@ -167,6 +167,11 @@
     <None Include="SimpleMath.inl">
       <FileType>Document</FileType>
     </None>
+    <ClCompile Include="Scene\Objects\BakeObject.cpp" />
+    <ClCompile Include="Scene\Objects\TransformObject.cpp" />
+    <ClCompile Include="Scene\Scene.cpp" />
+    <ClCompile Include="Scene\SceneObject.cpp" />
+    <ClCompile Include="Scene\SceneProperty.cpp" />
     <ClCompile Include="SimpleMath.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
@@ -187,6 +192,11 @@
     <ClInclude Include="Render\RenderMaterial.h" />
     <ClInclude Include="Render\RenderMesh.h" />
     <ClInclude Include="Render\RenderShader.h" />
+    <ClInclude Include="Scene\Objects\TransformObject.h" />
+    <ClInclude Include="Scene\Objects\BakeObject.h" />
+    <ClInclude Include="Scene\Scene.h" />
+    <ClInclude Include="Scene\SceneObject.h" />
+    <ClInclude Include="Scene\SceneProperty.h" />
     <ClInclude Include="SimpleMath.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>

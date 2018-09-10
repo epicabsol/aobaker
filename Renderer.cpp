@@ -46,6 +46,8 @@ HANDLE UploadFenceEvent = NULL;
 ID3D12Fence* UploadFence = nullptr;
 unsigned long long int UploadFenceValue = 0;
 
+DirectX::SimpleMath::Matrix View = DirectX::SimpleMath::Matrix::Identity;
+
 struct WorldConstants
 {
 	DirectX::SimpleMath::Matrix Model = { };
@@ -115,7 +117,7 @@ IDXGIAdapter1* GetBestAdapter(IDXGIFactory4* const factory)
 	IDXGIAdapter1* result = nullptr;
 
 	IDXGIAdapter1* adapter = nullptr;
-	unsigned int vram = 0;
+	size_t vram = 0;
 	int i = 0;
 	while (factory->EnumAdapters1(i++, &adapter) != DXGI_ERROR_NOT_FOUND)
 	{
@@ -630,12 +632,17 @@ HRESULT Renderer::UploadData(ID3D12Resource* const destination, void* const data
 	return hr;
 }
 
+void Renderer::SetView(const DirectX::SimpleMath::Matrix& view)
+{
+	View = view;
+}
+
 void Renderer::Render(RenderMesh* const mesh, const DirectX::SimpleMath::Matrix& transform)
 {
 	WorldConstants worldConstants = { };
 	worldConstants.Projection = DirectX::SimpleMath::Matrix::CreatePerspectiveFieldOfView(3.1415926535f/3.0f, (float)Window::GetClientWidth() / Window::GetClientHeight(), 0.5f, 1000.0f);
 	worldConstants.Model = transform;
-	worldConstants.View = DirectX::SimpleMath::Matrix::CreateRotationX(0.5f) * DirectX::SimpleMath::Matrix::CreateTranslation(0.0f, 0.0f, -10.0f);
+	worldConstants.View = View;
 
 	CommandList->SetGraphicsRootSignature(mesh->GetMaterial()->GetShader()->GetSignature());
 	WorldConstantBuffer->Apply(CommandList, worldConstants, 0, CurrentFrameID);

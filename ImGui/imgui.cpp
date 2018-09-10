@@ -8479,7 +8479,7 @@ void ImGui::LogButtons()
         LogToClipboard(g.LogAutoExpandMaxDepth);
 }
 
-bool ImGui::TreeNodeBehaviorIsOpen(ImGuiID id, ImGuiTreeNodeFlags flags)
+bool ImGui::TreeNodeBehaviorIsOpen(ImGuiID id, bool* pressed, ImGuiTreeNodeFlags flags)
 {
     if (flags & ImGuiTreeNodeFlags_Leaf)
         return true;
@@ -8526,7 +8526,7 @@ bool ImGui::TreeNodeBehaviorIsOpen(ImGuiID id, ImGuiTreeNodeFlags flags)
     return is_open;
 }
 
-bool ImGui::TreeNodeBehavior(ImGuiID id, ImGuiTreeNodeFlags flags, const char* label, const char* label_end)
+bool ImGui::TreeNodeBehavior(ImGuiID id, bool* pressed, ImGuiTreeNodeFlags flags, const char* label, const char* label_end)
 {
     ImGuiWindow* window = GetCurrentWindow();
     if (window->SkipItems)
@@ -8559,7 +8559,7 @@ bool ImGui::TreeNodeBehavior(ImGuiID id, ImGuiTreeNodeFlags flags, const char* l
     // For regular tree nodes, we arbitrary allow to click past 2 worth of ItemSpacing
     // (Ideally we'd want to add a flag for the user to specify if we want the hit test to be done up to the right side of the content or not)
     const ImRect interact_bb = display_frame ? frame_bb : ImRect(frame_bb.Min.x, frame_bb.Min.y, frame_bb.Min.x + text_width + style.ItemSpacing.x*2, frame_bb.Max.y);
-    bool is_open = TreeNodeBehaviorIsOpen(id, flags);
+    bool is_open = TreeNodeBehaviorIsOpen(id, pressed, flags);
 
     // Store a flag for the current depth to tell if we will allow closing this node when navigating one of its child.
     // For this purpose we essentially compare if g.NavIdIsAlive went from 0 to 1 between TreeNode() and TreePop().
@@ -8589,11 +8589,13 @@ bool ImGui::TreeNodeBehavior(ImGuiID id, ImGuiTreeNodeFlags flags, const char* l
     if (flags & ImGuiTreeNodeFlags_OpenOnDoubleClick)
         button_flags |= ImGuiButtonFlags_PressedOnDoubleClick | ((flags & ImGuiTreeNodeFlags_OpenOnArrow) ? ImGuiButtonFlags_PressedOnClickRelease : 0);
 
-    bool hovered, held, pressed = ButtonBehavior(interact_bb, id, &hovered, &held, button_flags);
+	bool hovered, held, pressed2;
+	if (pressed == nullptr) pressed = &pressed2;
+	*pressed = ButtonBehavior(interact_bb, id, &hovered, &held, button_flags);
     if (!(flags & ImGuiTreeNodeFlags_Leaf))
     {
         bool toggled = false;
-        if (pressed)
+        if (*pressed)
         {
             toggled = !(flags & (ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick)) || (g.NavActivateId == id);
             if (flags & ImGuiTreeNodeFlags_OpenOnArrow)
@@ -8678,7 +8680,8 @@ bool ImGui::CollapsingHeader(const char* label, ImGuiTreeNodeFlags flags)
     if (window->SkipItems)
         return false;
 
-    return TreeNodeBehavior(window->GetID(label), flags | ImGuiTreeNodeFlags_CollapsingHeader, label);
+	bool pressed;
+    return TreeNodeBehavior(window->GetID(label), &pressed, flags | ImGuiTreeNodeFlags_CollapsingHeader, label);
 }
 
 bool ImGui::CollapsingHeader(const char* label, bool* p_open, ImGuiTreeNodeFlags flags)
@@ -8691,7 +8694,8 @@ bool ImGui::CollapsingHeader(const char* label, bool* p_open, ImGuiTreeNodeFlags
         return false;
 
     ImGuiID id = window->GetID(label);
-    bool is_open = TreeNodeBehavior(id, flags | ImGuiTreeNodeFlags_CollapsingHeader | (p_open ? ImGuiTreeNodeFlags_AllowItemOverlap : 0), label);
+	bool pressed;
+    bool is_open = TreeNodeBehavior(id, &pressed, flags | ImGuiTreeNodeFlags_CollapsingHeader | (p_open ? ImGuiTreeNodeFlags_AllowItemOverlap : 0), label);
     if (p_open)
     {
         // Create a small overlapping close button // FIXME: We can evolve this into user accessible helpers to add extra buttons on title bars, headers, etc.
@@ -8706,27 +8710,16 @@ bool ImGui::CollapsingHeader(const char* label, bool* p_open, ImGuiTreeNodeFlags
     return is_open;
 }
 
-bool ImGui::TreeNodeEx(const char* label, ImGuiTreeNodeFlags flags)
+bool ImGui::TreeNodeEx(const char* label, bool* pressed, ImGuiTreeNodeFlags flags)
 {
     ImGuiWindow* window = GetCurrentWindow();
     if (window->SkipItems)
         return false;
 
-    return TreeNodeBehavior(window->GetID(label), flags, label, NULL);
+    return TreeNodeBehavior(window->GetID(label), pressed, flags, label, NULL);
 }
 
-bool ImGui::TreeNodeExV(const char* str_id, ImGuiTreeNodeFlags flags, const char* fmt, va_list args)
-{
-    ImGuiWindow* window = GetCurrentWindow();
-    if (window->SkipItems)
-        return false;
-
-    ImGuiContext& g = *GImGui;
-    const char* label_end = g.TempBuffer + ImFormatStringV(g.TempBuffer, IM_ARRAYSIZE(g.TempBuffer), fmt, args);
-    return TreeNodeBehavior(window->GetID(str_id), flags, g.TempBuffer, label_end);
-}
-
-bool ImGui::TreeNodeExV(const void* ptr_id, ImGuiTreeNodeFlags flags, const char* fmt, va_list args)
+bool ImGui::TreeNodeExV(const char* str_id, bool* pressed, ImGuiTreeNodeFlags flags, const char* fmt, va_list args)
 {
     ImGuiWindow* window = GetCurrentWindow();
     if (window->SkipItems)
@@ -8734,61 +8727,72 @@ bool ImGui::TreeNodeExV(const void* ptr_id, ImGuiTreeNodeFlags flags, const char
 
     ImGuiContext& g = *GImGui;
     const char* label_end = g.TempBuffer + ImFormatStringV(g.TempBuffer, IM_ARRAYSIZE(g.TempBuffer), fmt, args);
-    return TreeNodeBehavior(window->GetID(ptr_id), flags, g.TempBuffer, label_end);
+    return TreeNodeBehavior(window->GetID(str_id), pressed, flags, g.TempBuffer, label_end);
 }
 
-bool ImGui::TreeNodeV(const char* str_id, const char* fmt, va_list args)
-{
-    return TreeNodeExV(str_id, 0, fmt, args);
-}
-
-bool ImGui::TreeNodeV(const void* ptr_id, const char* fmt, va_list args)
-{
-    return TreeNodeExV(ptr_id, 0, fmt, args);
-}
-
-bool ImGui::TreeNodeEx(const char* str_id, ImGuiTreeNodeFlags flags, const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    bool is_open = TreeNodeExV(str_id, flags, fmt, args);
-    va_end(args);
-    return is_open;
-}
-
-bool ImGui::TreeNodeEx(const void* ptr_id, ImGuiTreeNodeFlags flags, const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    bool is_open = TreeNodeExV(ptr_id, flags, fmt, args);
-    va_end(args);
-    return is_open;
-}
-
-bool ImGui::TreeNode(const char* str_id, const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    bool is_open = TreeNodeExV(str_id, 0, fmt, args);
-    va_end(args);
-    return is_open;
-}
-
-bool ImGui::TreeNode(const void* ptr_id, const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    bool is_open = TreeNodeExV(ptr_id, 0, fmt, args);
-    va_end(args);
-    return is_open;
-}
-
-bool ImGui::TreeNode(const char* label)
+bool ImGui::TreeNodeExV(const void* ptr_id, bool* pressed, ImGuiTreeNodeFlags flags, const char* fmt, va_list args)
 {
     ImGuiWindow* window = GetCurrentWindow();
     if (window->SkipItems)
         return false;
-    return TreeNodeBehavior(window->GetID(label), 0, label, NULL);
+
+    ImGuiContext& g = *GImGui;
+    const char* label_end = g.TempBuffer + ImFormatStringV(g.TempBuffer, IM_ARRAYSIZE(g.TempBuffer), fmt, args);
+    return TreeNodeBehavior(window->GetID(ptr_id), pressed, flags, g.TempBuffer, label_end);
+}
+
+bool ImGui::TreeNodeV(const char* str_id, bool* pressed, const char* fmt, va_list args)
+{
+    return TreeNodeExV(str_id, pressed, 0, fmt, args);
+}
+
+bool ImGui::TreeNodeV(const void* ptr_id, bool* pressed, const char* fmt, va_list args)
+{
+    return TreeNodeExV(ptr_id, pressed, 0, fmt, args);
+}
+
+bool ImGui::TreeNodeEx(const char* str_id, bool* pressed, ImGuiTreeNodeFlags flags, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    bool is_open = TreeNodeExV(str_id, pressed, flags, fmt, args);
+    va_end(args);
+    return is_open;
+}
+
+bool ImGui::TreeNodeEx(const void* ptr_id, bool* pressed, ImGuiTreeNodeFlags flags, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    bool is_open = TreeNodeExV(ptr_id, pressed, flags, fmt, args);
+    va_end(args);
+    return is_open;
+}
+
+bool ImGui::TreeNode(const char* str_id, bool* pressed, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    bool is_open = TreeNodeExV(str_id, pressed, 0, fmt, args);
+    va_end(args);
+    return is_open;
+}
+
+bool ImGui::TreeNode(const void* ptr_id, bool* pressed, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    bool is_open = TreeNodeExV(ptr_id, pressed, 0, fmt, args);
+    va_end(args);
+    return is_open;
+}
+
+bool ImGui::TreeNode(const char* label, bool* pressed)
+{
+    ImGuiWindow* window = GetCurrentWindow();
+    if (window->SkipItems)
+        return false;
+    return TreeNodeBehavior(window->GetID(label), pressed, 0, label, NULL);
 }
 
 void ImGui::TreeAdvanceToLabelPos()
@@ -13935,7 +13939,7 @@ void ImGui::ShowMetricsWindow(bool* p_open)
         {
             static void NodeDrawList(ImGuiWindow* window, ImDrawList* draw_list, const char* label)
             {
-                bool node_open = ImGui::TreeNode(draw_list, "%s: '%s' %d vtx, %d indices, %d cmds", label, draw_list->_OwnerName ? draw_list->_OwnerName : "", draw_list->VtxBuffer.Size, draw_list->IdxBuffer.Size, draw_list->CmdBuffer.Size);
+                bool node_open = ImGui::TreeNode(draw_list, nullptr, "%s: '%s' %d vtx, %d indices, %d cmds", label, draw_list->_OwnerName ? draw_list->_OwnerName : "", draw_list->VtxBuffer.Size, draw_list->IdxBuffer.Size, draw_list->CmdBuffer.Size);
                 if (draw_list == ImGui::GetWindowDrawList())
                 {
                     ImGui::SameLine();
@@ -13961,7 +13965,7 @@ void ImGui::ShowMetricsWindow(bool* p_open)
                         continue;
                     }
                     ImDrawIdx* idx_buffer = (draw_list->IdxBuffer.Size > 0) ? draw_list->IdxBuffer.Data : NULL;
-                    bool pcmd_node_open = ImGui::TreeNode((void*)(pcmd - draw_list->CmdBuffer.begin()), "Draw %4d %s vtx, tex 0x%p, clip_rect (%4.0f,%4.0f)-(%4.0f,%4.0f)", pcmd->ElemCount, draw_list->IdxBuffer.Size > 0 ? "indexed" : "non-indexed", pcmd->TextureId, pcmd->ClipRect.x, pcmd->ClipRect.y, pcmd->ClipRect.z, pcmd->ClipRect.w);
+                    bool pcmd_node_open = ImGui::TreeNode((void*)(pcmd - draw_list->CmdBuffer.begin()), nullptr, "Draw %4d %s vtx, tex 0x%p, clip_rect (%4.0f,%4.0f)-(%4.0f,%4.0f)", pcmd->ElemCount, draw_list->IdxBuffer.Size > 0 ? "indexed" : "non-indexed", pcmd->TextureId, pcmd->ClipRect.x, pcmd->ClipRect.y, pcmd->ClipRect.z, pcmd->ClipRect.w);
                     if (show_draw_cmd_clip_rects && ImGui::IsItemHovered())
                     {
                         ImRect clip_rect = pcmd->ClipRect;
@@ -14004,7 +14008,7 @@ void ImGui::ShowMetricsWindow(bool* p_open)
 
             static void NodeWindows(ImVector<ImGuiWindow*>& windows, const char* label)
             {
-                if (!ImGui::TreeNode(label, "%s (%d)", label, windows.Size))
+                if (!ImGui::TreeNode(label, nullptr, "%s (%d)", label, windows.Size))
                     return;
                 for (int i = 0; i < windows.Size; i++)
                     Funcs::NodeWindow(windows[i], "Window");
@@ -14013,7 +14017,7 @@ void ImGui::ShowMetricsWindow(bool* p_open)
 
             static void NodeWindow(ImGuiWindow* window, const char* label)
             {
-                if (!ImGui::TreeNode(window, "%s '%s', %d @ 0x%p", label, window->Name, window->Active || window->WasActive, window))
+                if (!ImGui::TreeNode(window, nullptr, "%s '%s', %d @ 0x%p", label, window->Name, window->Active || window->WasActive, window))
                     return;
                 ImGuiWindowFlags flags = window->Flags;
                 NodeDrawList(window, window->DrawList, "DrawList");
@@ -14033,12 +14037,12 @@ void ImGui::ShowMetricsWindow(bool* p_open)
                 if (window->RootWindow != window) NodeWindow(window->RootWindow, "RootWindow");
                 if (window->ParentWindow != NULL) NodeWindow(window->ParentWindow, "ParentWindow");
                 if (window->DC.ChildWindows.Size > 0) NodeWindows(window->DC.ChildWindows, "ChildWindows");
-                if (window->ColumnsStorage.Size > 0 && ImGui::TreeNode("Columns", "Columns sets (%d)", window->ColumnsStorage.Size))
+                if (window->ColumnsStorage.Size > 0 && ImGui::TreeNode("Columns", nullptr, "Columns sets (%d)", window->ColumnsStorage.Size))
                 {
                     for (int n = 0; n < window->ColumnsStorage.Size; n++)
                     {
                         const ImGuiColumnsSet* columns = &window->ColumnsStorage[n];
-                        if (ImGui::TreeNode((void*)(uintptr_t)columns->ID, "Columns Id: 0x%08X, Count: %d, Flags: 0x%04X", columns->ID, columns->Count, columns->Flags))
+                        if (ImGui::TreeNode((void*)(uintptr_t)columns->ID, nullptr, "Columns Id: 0x%08X, Count: %d, Flags: 0x%04X", columns->ID, columns->Count, columns->Flags))
                         {
                             ImGui::BulletText("Width: %.1f (MinX: %.1f, MaxX: %.1f)", columns->MaxX - columns->MinX, columns->MinX, columns->MaxX);
                             for (int column_n = 0; column_n < columns->Columns.Size; column_n++)
@@ -14056,13 +14060,13 @@ void ImGui::ShowMetricsWindow(bool* p_open)
         // Access private state, we are going to display the draw lists from last frame
         ImGuiContext& g = *GImGui;
         Funcs::NodeWindows(g.Windows, "Windows");
-        if (ImGui::TreeNode("DrawList", "Active DrawLists (%d)", g.DrawDataBuilder.Layers[0].Size))
+        if (ImGui::TreeNode("DrawList", nullptr, "Active DrawLists (%d)", g.DrawDataBuilder.Layers[0].Size))
         {
             for (int i = 0; i < g.DrawDataBuilder.Layers[0].Size; i++)
                 Funcs::NodeDrawList(NULL, g.DrawDataBuilder.Layers[0][i], "DrawList");
             ImGui::TreePop();
         }
-        if (ImGui::TreeNode("Popups", "Popups (%d)", g.OpenPopupStack.Size))
+        if (ImGui::TreeNode("Popups", nullptr, "Popups (%d)", g.OpenPopupStack.Size))
         {
             for (int i = 0; i < g.OpenPopupStack.Size; i++)
             {

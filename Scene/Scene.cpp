@@ -36,31 +36,32 @@ void Scene::Render()
 	}
 }
 
-void Scene::DrawTreeGUI()
+bool Scene::EnumerateBakeObjects(void* data, int index, const char** outText)
 {
-	// TODO: Draw scene tree
-	size_t selectedObject = -1;
-	for (size_t i = 0; i < this->BakeObjects.size(); i++)
-	{
-		bool pressed;
-		if (ImGui::TreeNodeEx(this->BakeObjects[i]->GetNameGUI(), &pressed, this->BakeObjects[i]->IsSelected() ? ImGuiTreeNodeFlags_Selected : 0))
-		{
-			if (pressed)
-				selectedObject = i;
-			ImGui::TreePop();
-		}
-	}
+	Scene* scene = (Scene*)data;
+	*outText = scene->BakeObjects.at(index)->GetNameGUI();
+	return true;
+}
 
-	if (selectedObject != -1)
+void Scene::DrawObjectList()
+{
+	int selectedItem = -1;
+	for (size_t i = 0; i < this->BakeObjects.size(); i++)
+		if (this->BakeObjects[i]->IsSelected())
+			selectedItem = i;
+
+	ImGui::PushItemWidth(-1);
+	if (ImGui::ListBox("Bake Objects", &selectedItem, &EnumerateBakeObjects, this, this->BakeObjects.size(), 10))
 	{
 		for (size_t i = 0; i < this->BakeObjects.size(); i++)
 		{
-			if (i == selectedObject)
+			if (i == selectedItem)
 				this->BakeObjects[i]->Select();
 			else
 				this->BakeObjects[i]->Deselect();
 		}
 	}
+	ImGui::PopItemWidth();
 }
 
 void Scene::DrawPropertiesGUI()
@@ -69,11 +70,11 @@ void Scene::DrawPropertiesGUI()
 	{
 		if (this->BakeObjects[i]->IsSelected())
 		{
-			if (ImGui::TreeNode(this->BakeObjects[i], nullptr, "%s", this->BakeObjects[i]->GetNameGUI()))
-			{
-				this->BakeObjects[i]->OnGUI();
-				ImGui::TreePop();
-			}
+			//if (ImGui::TreeNode(this->BakeObjects[i], nullptr, "%s", this->BakeObjects[i]->GetNameGUI()))
+			//{
+			this->BakeObjects[i]->OnGUI();
+			//ImGui::TreePop();
+			//}
 		}
 	}
 }

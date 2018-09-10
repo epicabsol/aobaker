@@ -127,8 +127,8 @@ void Initialize()
 	}
 
 	CurrentScene = new Scene();
-	//CurrentScene->AddObject(new BakeObject(L"Object 1"));
-	//CurrentScene->AddObject(new BakeObject(L"Object 2"));
+	CurrentScene->AddObject(new BakeObject(L"Object 1"));
+	CurrentScene->AddObject(new BakeObject(L"Object 2"));
 	BakeObject* cube = new BakeObject(L"Cube");
 	cube->LoadFromCube();
 	CurrentScene->AddObject(cube);
@@ -240,7 +240,7 @@ void Render()
 	//ImGui::SetNextWindowSizeConstraints(ImVec2(100.0f, Window::GetClientHeight()), ImVec2(1000.0f, Window::GetClientHeight()));
 	if (ImGui::Begin("Models"))
 	{
-		CurrentScene->DrawTreeGUI();
+		CurrentScene->DrawObjectList();
 	}
 	ImGui::End();
 

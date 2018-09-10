@@ -18,7 +18,7 @@ public:
 	void AddObject(BakeObject* const object);
 	void RemoveObject(BakeObject* const object);
 	void Render();
-	void DrawTreeGUI();
+	void DrawObjectList();
 	void DrawPropertiesGUI();
 	~Scene();
 
@@ -28,4 +28,6 @@ private:
 	FloatProperty CameraYaw;
 	// All the BakeObjects in the scene. All pointers will be deleted upon Scene destruction.
 	std::vector<BakeObject*> BakeObjects;
+
+	static bool EnumerateBakeObjects(void* data, int index, const char** outText);
 };

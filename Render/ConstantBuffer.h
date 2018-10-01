@@ -34,7 +34,7 @@ void ConstantBuffer<T>::Apply(ID3D12GraphicsCommandList* const commandList, cons
 		allocator = GPURingAllocator::Create(sizeof(T) * ConstantBuffer<T>::InitialCount, 256, 256);
 		if (allocator == nullptr)
 		{
-			OutputDebugStringW(L"[ERROR]: ConstantBuffer<T>::Apply: Failed to create first GPURingAllocator!");
+			OutputDebugStringW(L"[ERROR]: ConstantBuffer<T>::Apply: Failed to create first GPURingAllocator!\n");
 			return;
 		}
 		else
@@ -50,6 +50,9 @@ void ConstantBuffer<T>::Apply(ID3D12GraphicsCommandList* const commandList, cons
 	GPURingAllocation* allocation = allocator->Allocate(InstanceSize, frameID);
 	if (allocation == nullptr)
 	{
+		OutputDebugStringW(L"ConstantBuffer: Creating a larger GPURingAllocator! Moving up to size ");
+		OutputDebugStringW(std::to_wstring(allocator->GetSize() * 2).c_str());
+		OutputDebugStringW(L"\n");
 		allocator = GPURingAllocator::Create(allocator->GetSize() * 2);
 		if (allocator != nullptr)
 		{
@@ -57,13 +60,13 @@ void ConstantBuffer<T>::Apply(ID3D12GraphicsCommandList* const commandList, cons
 			allocation = allocator->Allocate(InstanceSize, frameID);
 			if (allocation == nullptr)
 			{
-				OutputDebugStringW(L"[ERROR]: ConstantBuffer<T>::Apply: Increased GPURingAllocator still failed to allocate!");
+				OutputDebugStringW(L"[ERROR]: ConstantBuffer<T>::Apply: Increased GPURingAllocator still failed to allocate!\n");
 				return;
 			}
 		}
 		else
 		{
-			OutputDebugStringW(L"[ERROR]: ConstantBuffer<T>::Apply: Failed to create increased GPURingAllocator!");
+			OutputDebugStringW(L"[ERROR]: ConstantBuffer<T>::Apply: Failed to create increased GPURingAllocator!\n");
 			return;
 		}
 	}

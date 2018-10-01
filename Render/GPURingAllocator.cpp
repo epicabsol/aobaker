@@ -14,18 +14,22 @@ int GPURingAllocator::GetSize() const
 GPURingAllocation* GPURingAllocator::Allocate(const int& size, const unsigned long long& frameID)
 {
 	const int alignedSize = this->AlignSize(size);
+	//OutputDebugStringW(L"[INFO]: GPURingAllocator: Attempting allocation.\n");
+	
 	// Find the starting offset
 	int offset = 0;
 	if (this->Front != nullptr)
 	{
+		// Try placing the new item after the most recently allocated item
 		offset = this->Front->StartOffset + this->Front->Data.Length;
+		// If there isn't enough room until the end of the buffer, go back to the beginning of the buffer.
 		if (offset > this->Size - alignedSize)
 		{
 			offset = 0;
 		}
 		if (frameID < this->Front->Data.FrameID)
 		{
-			OutputDebugStringW(L"[WARNING]: GPURingAllocator: You're trying to go back in time with these frame IDs. Don't.");
+			OutputDebugStringW(L"[WARNING]: GPURingAllocator: You're trying to go back in time with these frame IDs. Don't.\n");
 			return nullptr;
 		}
 	}
@@ -33,7 +37,8 @@ GPURingAllocation* GPURingAllocator::Allocate(const int& size, const unsigned lo
 
 	// Find the max offset
 	int maxOffset = this->Size;
-	if (this->Back != nullptr)
+	// If we have wrapped back to the beginning of the buffer, make sure we don't overwrite the first allocated item.
+	if (this->Back != nullptr && (this->Back->StartOffset > offset))
 	{
 		maxOffset = this->Back->StartOffset;
 	}
@@ -41,11 +46,12 @@ GPURingAllocation* GPURingAllocator::Allocate(const int& size, const unsigned lo
 	// Check size
 	if (maxOffset - offset < alignedSize)
 	{
-		OutputDebugStringW(L"[WARNING]: GPURingBuffer: Couldn't allocate enough memory!");
+		OutputDebugStringW(L"[WARNING]: GPURingBuffer: Couldn't allocate enough memory!\n");
+		return nullptr;
 	}
 
 	// Construct item (don't assume any values in the ItemPool's allocated data)
-	//OutputDebugStringW(L"[INFO]: GPURingAllocator: Allocating item.\n");
+	//OutputDebugStringW(L"[INFO]: GPURingAllocator: Allocation succeeded.\n");
 	Item* newItem = ItemPool.Allocate();
 	newItem->Next = nullptr;
 	newItem->Previous = this->Front;
@@ -131,10 +137,14 @@ GPURingAllocator* GPURingAllocator::Create(const int& size, const int& itemAlign
 
 int GPURingAllocator::Align(const int& input) const
 {
+	if (this->ItemAlignment == 0)
+		return input;
 	return input + ((this->ItemAlignment - (input % this->ItemAlignment)) % this->ItemAlignment);
 }
 
 int GPURingAllocator::AlignSize(const int& size) const
 {
+	if (this->ItemSizeAlignment == 0)
+			return size;
 	return size + ((this->ItemSizeAlignment - (size % this->ItemSizeAlignment)) % this->ItemSizeAlignment);
 }

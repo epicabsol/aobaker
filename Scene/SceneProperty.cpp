@@ -6,7 +6,7 @@ using namespace DirectX::SimpleMath;
 // wstring to string
 #include <locale>
 #include <codecvt>
-std::wstring_convert<std::codecvt_utf8<wchar_t>> StringConverter;
+static std::wstring_convert<std::codecvt_utf8<wchar_t>> StringConverter;
 
 std::wstring SceneProperty::GetName() const
 {

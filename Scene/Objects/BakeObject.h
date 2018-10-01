@@ -2,6 +2,9 @@
 
 #include "TransformObject.h"
 #include "../../Render/RenderMesh.h"
+#undef min
+#include <assimp/scene.h>
+#include <assimp/matrix4x4.h>
 
 class BakeObject : public TransformObject
 {
@@ -44,11 +47,13 @@ public:
 	BakeObject(const std::wstring& name);
 	void OnGUI() override;
 	void Render() const;
-	void LoadFromOBJ(const std::wstring& filename);
+	void LoadFromFile(const std::wstring& filename);
 	void LoadFromCube();
 	void Clear();
+	~BakeObject();
 
 private:
+	void ImportAiNode(const aiScene* scene, aiNode* node, const aiMatrix4x4& parentTransform);
 	std::vector<Section*> Sections;
 };
 

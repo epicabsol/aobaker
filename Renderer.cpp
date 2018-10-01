@@ -14,7 +14,7 @@
 const unsigned int BufferCount = 2;
 const bool UseSoftwareRenderer = false;
 const DXGI_FORMAT BufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-const size_t UploadBufferSize = 1024 * 16; // 16kB
+const size_t UploadBufferSize = 1024 * 1024 * 30; // 30MB
 
 int BufferWidth = 0;
 int BufferHeight = 0;

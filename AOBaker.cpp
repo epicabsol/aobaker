@@ -127,11 +127,14 @@ void Initialize()
 	}
 
 	CurrentScene = new Scene();
-	CurrentScene->AddObject(new BakeObject(L"Object 1"));
-	CurrentScene->AddObject(new BakeObject(L"Object 2"));
-	BakeObject* cube = new BakeObject(L"Cube");
-	cube->LoadFromCube();
-	CurrentScene->AddObject(cube);
+	//CurrentScene->AddObject(new BakeObject(L"Object 1"));
+	//CurrentScene->AddObject(new BakeObject(L"Object 2"));
+	//BakeObject* cube = new BakeObject(L"Cube");
+	//cube->LoadFromCube();
+	//CurrentScene->AddObject(cube);
+	BakeObject* nomad = new BakeObject(L"Nomad");
+	nomad->LoadFromFile(L"D:\\codemastrben\\Documents\\Projects\\Modding\\Mass Effect Modding\\Andromeda\\model dumps\\frosty testing\\mako\\mako_static_mesh_LOD0.obj");
+	CurrentScene->AddObject(nomad);
 }
 
 void Update(const float& dT)
@@ -324,6 +327,12 @@ void KeyUp(const int& vkey)
 
 void Dispose()
 {
+	if (CurrentScene != nullptr)
+	{
+		delete CurrentScene;
+		CurrentScene = nullptr;
+	}
+
 	if (TestMesh != nullptr)
 	{
 		TestMesh->Dispose();

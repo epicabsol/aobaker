@@ -51,7 +51,7 @@ private:
 	int Size = 0;
 	int ItemAlignment = 0;
 	int ItemSizeAlignment = 0;
-	Item* Front = nullptr; // The last allocated item
+	Item* Front = nullptr; // The most recent allocated item
 	Item* Back = nullptr; // The first allocated item
 	void* Data = nullptr;
 	InstancePool<Item> ItemPool = InstancePool<Item>();

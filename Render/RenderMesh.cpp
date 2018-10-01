@@ -1,6 +1,8 @@
 #include "RenderMesh.h"
 #include "../Renderer.h"
 
+//#include "Windows.h"
+
 using namespace DirectX::SimpleMath;
 
 RenderVertex::RenderVertex()
@@ -29,6 +31,14 @@ RenderMesh::RenderMesh(RenderMaterial* const material, const PrimitiveType& type
 		this->Vertices = new RenderVertex[this->VertexCount];
 		for (int i = 0; i < this->VertexCount; i++)
 			this->Vertices[i] = vertices[i];
+
+		OutputDebugStringW(L"Creating RenderMesh with vertex count = ");
+		OutputDebugStringW(std::to_wstring(this->VertexCount).c_str());
+		OutputDebugStringW(L", start is = ");
+		OutputDebugStringW(std::to_wstring((size_t)this->Vertices).c_str());
+		OutputDebugStringW(L", end is = ");
+		OutputDebugStringW(std::to_wstring((size_t)(this->Vertices) + this->VertexCount * sizeof(RenderVertex)).c_str());
+		OutputDebugStringW(L"\n");
 	}
 	this->IndexCount = indexCount;
 	if (this->IndexCount > 0)
@@ -46,7 +56,7 @@ RenderMaterial* RenderMesh::GetMaterial() const
 
 int RenderMesh::GetVertexCount() const
 {
-	return this->IndexCount;
+	return this->VertexCount;
 }
 
 RenderVertex* RenderMesh::GetVertices() const

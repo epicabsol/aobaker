@@ -2,6 +2,14 @@
 #include "../../ImGui/imgui.h"
 #include "../../AOBaker.h"
 #include "../../Renderer.h"
+// assimp model importer
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+// wstring to string
+#include <locale>
+#include <codecvt>
+static std::wstring_convert<std::codecvt_utf8<wchar_t>> StringConverter;
 
 using namespace DirectX::SimpleMath;
 
@@ -71,9 +79,91 @@ void BakeObject::Render() const
 	}
 }
 
-void BakeObject::LoadFromOBJ(const std::wstring& filename)
+void BakeObject::ImportAiNode(const aiScene* scene, aiNode* node, const aiMatrix4x4& parentTransform)
 {
-	// TODO: Implement OBJ loading
+	aiMatrix4x4 transform = parentTransform * node->mTransformation;
+	bool isTransformed = transform.IsIdentity();
+
+	for (int i = 0; i < node->mNumMeshes; i++)
+	{
+		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+
+		BakeObject::Vertex* vertices = new BakeObject::Vertex[mesh->mNumVertices];
+		std::vector<unsigned int> indices(mesh->mNumFaces * 3); // Will probably have around 3 indices per face
+		for (int v = 0; v < mesh->mNumVertices; v++)
+		{
+			aiVector3D pos = mesh->mVertices[v];
+			if (isTransformed)
+				pos = transform * pos;
+			vertices[v].Position = Vector3(pos.x, pos.y, pos.z);
+		}
+
+		if (mesh->HasNormals())
+		{
+			for (int v = 0; v < mesh->mNumVertices; v++)
+			{
+				aiVector3D norm = mesh->mNormals[v];
+				vertices[v].Normal = Vector3(norm.x, norm.y, norm.z);
+			}
+		}
+
+		if (mesh->HasTextureCoords(0))
+		{
+			for (int v = 0; v < mesh->mNumVertices; v++)
+			{
+				aiVector3D uvw = mesh->mTextureCoords[0][v];
+				vertices[v].UV = Vector2(uvw.x, uvw.y);
+			}
+		}
+
+		for (int f = 0; f < mesh->mNumFaces; f++)
+		{
+			for (int i = 0; i < mesh->mFaces[f].mNumIndices; i++)
+			{
+				indices.push_back(mesh->mFaces[f].mIndices[i]);
+			}
+		}
+
+		BakeObject::Section* newSection = new BakeObject::Section(std::wstring(StringConverter.from_bytes(node->mName.data)));
+		newSection->SetMeshData(vertices, mesh->mNumVertices, indices.data(), indices.size());
+		this->Sections.push_back(newSection);
+
+		delete[] vertices;
+		
+	}
+
+	for (int i = 0; i < node->mNumChildren; i++)
+	{
+		ImportAiNode(scene, node->mChildren[i], transform);
+	}
+}
+
+void BakeObject::LoadFromFile(const std::wstring& filename)
+{
+	/*std::ifstream stream = std::ifstream(filename.c_str());
+
+	std::string line;
+	std::vector<std::string> parts;
+	while (std::getline(stream, line))
+	{
+		
+		OutputDebugStringA(line.c_str());
+	}
+
+	stream.close();*/
+
+	Assimp::Importer importer;
+
+	const aiScene* scene = importer.ReadFile((std::string)StringConverter.to_bytes(filename), aiProcess_ConvertToLeftHanded | aiProcess_FixInfacingNormals | aiProcess_GenNormals | aiProcess_ImproveCacheLocality);
+	
+	if (scene == nullptr)
+	{
+		// Error
+		return;
+	}
+	
+	// Add all nodes in the scene
+	this->ImportAiNode(scene, scene->mRootNode, aiMatrix4x4());
 }
 
 BakeObject::Vertex CubeVertices[] = 
@@ -115,6 +205,15 @@ void BakeObject::LoadFromCube()
 }
 
 void BakeObject::Clear()
+{
+	for (size_t i = 0; i < this->Sections.size(); i++)
+	{
+		delete this->Sections[i];
+	}
+	this->Sections.clear();
+}
+
+BakeObject::~BakeObject() 
 {
 	for (size_t i = 0; i < this->Sections.size(); i++)
 	{

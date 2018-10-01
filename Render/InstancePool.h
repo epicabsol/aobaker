@@ -67,6 +67,13 @@ T* InstancePool<T>::Allocate()
 		{
 			this->NextFreeItem = this->NextFreeItem->Next;
 		}
+
+		// Detect loops where there are no free items.
+		if (this->NextFreeItem == result)
+		{
+			this->NextFreeItem = nullptr;
+			break;
+		}
 	}
 
 	//result->Data = { }; // Clear out the data

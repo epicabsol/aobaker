@@ -6,6 +6,8 @@
 #include <assimp/scene.h>
 #include <assimp/matrix4x4.h>
 
+class Scene;
+
 class BakeObject : public TransformObject
 {
 public:
@@ -27,6 +29,8 @@ public:
 		inline void SetVisibleToSelf(const bool& value) { this->VisibleToSelf.SetValue(value); }
 		inline bool IsVisibleToOthers() const { return this->VisibleToOthers.GetValue(); }
 		inline void SetVisibleToOthers(const bool& value) { this->VisibleToOthers.SetValue(value); }
+		inline MaterialObject* GetMaterial() const { return this->Material.GetValue(); }
+		inline void SetMaterial(MaterialObject* const material) { this->Material.SetValue(material); }
 
 		Section(const std::wstring& name);
 		void SetMeshData(Vertex* const vertices, const int& vertexCount, unsigned int* const indices, const int& indexCount);
@@ -42,18 +46,19 @@ public:
 		
 		BooleanProperty VisibleToSelf;
 		BooleanProperty VisibleToOthers;
+		MaterialProperty Material;
 	};
 
 	BakeObject(const std::wstring& name);
 	void OnGUI() override;
 	void Render() const;
-	void LoadFromFile(const std::wstring& filename);
+	void LoadFromFile(const std::wstring& filename, Scene* const targetScene);
 	void LoadFromCube();
 	void Clear();
 	~BakeObject();
 
 private:
-	void ImportAiNode(const aiScene* scene, aiNode* node, const aiMatrix4x4& parentTransform);
+	void ImportAiNode(const aiScene* scene, aiNode* node, const aiMatrix4x4& parentTransform, Scene* const targetScene);
 	std::vector<Section*> Sections;
 };
 

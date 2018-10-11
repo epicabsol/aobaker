@@ -17,10 +17,11 @@ BakeObject::Vertex::Vertex() : Vertex(Vector3::Zero, Vector3::Zero, Vector2::Zer
 
 BakeObject::Vertex::Vertex(const Vector3& position, const Vector3& normal, const Vector2& uv) : Position(position), Normal(normal), UV(uv) { }
 
-BakeObject::Section::Section(const std::wstring& name) : SceneObject(name), VisibleToSelf(L"Visible To Self", true), VisibleToOthers(L"Visible To Others", true), PreviewMesh(nullptr)
+BakeObject::Section::Section(const std::wstring& name) : SceneObject(name), VisibleToSelf(L"Visible To Self", true), VisibleToOthers(L"Visible To Others", true), Material(L"Material", nullptr), PreviewMesh(nullptr)
 {
 	this->AddProperty(&this->VisibleToSelf);
 	this->AddProperty(&this->VisibleToOthers);
+	this->AddProperty(&this->Material);
 }
 
 void BakeObject::Section::SetMeshData(Vertex* const vertices, const int& vertexCount, unsigned int* const indices, const int& indexCount)
@@ -79,7 +80,7 @@ void BakeObject::Render() const
 	}
 }
 
-void BakeObject::ImportAiNode(const aiScene* scene, aiNode* node, const aiMatrix4x4& parentTransform)
+void BakeObject::ImportAiNode(const aiScene* scene, aiNode* node, const aiMatrix4x4& parentTransform, Scene* const targetScene)
 {
 	aiMatrix4x4 transform = parentTransform * node->mTransformation;
 	bool isTransformed = transform.IsIdentity();
@@ -124,8 +125,28 @@ void BakeObject::ImportAiNode(const aiScene* scene, aiNode* node, const aiMatrix
 			}
 		}
 
+		MaterialObject* material = nullptr;
+		aiString aiMatName;
+		scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_NAME, aiMatName);
+		//std::wstring materialName = StringConverter.from_bytes(scene->mMaterials[mesh->mMaterialIndex]->GetName().C_Str());
+		std::wstring materialName = StringConverter.from_bytes(aiMatName.C_Str());
+		OutputDebugStringW(L"Material: '");
+		OutputDebugStringW(materialName.c_str());
+		OutputDebugStringW(L"'\n");
+		int existingIndex = targetScene->FindMaterial(materialName);
+		if (existingIndex > -1)
+		{
+			material = targetScene->GetMaterial(existingIndex);
+		}
+		else
+		{
+			material = new MaterialObject(materialName);
+			targetScene->AddMaterial(material);
+		}
+
 		BakeObject::Section* newSection = new BakeObject::Section(std::wstring(StringConverter.from_bytes(node->mName.data)));
 		newSection->SetMeshData(vertices, mesh->mNumVertices, indices.data(), indices.size());
+		newSection->SetMaterial(material);
 		this->Sections.push_back(newSection);
 
 		delete[] vertices;
@@ -134,11 +155,11 @@ void BakeObject::ImportAiNode(const aiScene* scene, aiNode* node, const aiMatrix
 
 	for (int i = 0; i < node->mNumChildren; i++)
 	{
-		ImportAiNode(scene, node->mChildren[i], transform);
+		ImportAiNode(scene, node->mChildren[i], transform, targetScene);
 	}
 }
 
-void BakeObject::LoadFromFile(const std::wstring& filename)
+void BakeObject::LoadFromFile(const std::wstring& filename, Scene* const targetScene)
 {
 	/*std::ifstream stream = std::ifstream(filename.c_str());
 
@@ -163,7 +184,7 @@ void BakeObject::LoadFromFile(const std::wstring& filename)
 	}
 	
 	// Add all nodes in the scene
-	this->ImportAiNode(scene, scene->mRootNode, aiMatrix4x4());
+	this->ImportAiNode(scene, scene->mRootNode, aiMatrix4x4(), targetScene);
 }
 
 BakeObject::Vertex CubeVertices[] = 

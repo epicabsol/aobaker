@@ -133,7 +133,7 @@ void Initialize()
 	//cube->LoadFromCube();
 	//CurrentScene->AddObject(cube);
 	BakeObject* nomad = new BakeObject(L"Nomad");
-	nomad->LoadFromFile(L"D:\\codemastrben\\Documents\\Projects\\Modding\\Mass Effect Modding\\Andromeda\\model dumps\\frosty testing\\mako\\mako_static_mesh_LOD0.obj");
+	nomad->LoadFromFile(L"D:\\codemastrben\\Documents\\Projects\\Modding\\Mass Effect Modding\\Andromeda\\model dumps\\frosty testing\\mako\\mako_static_mesh_LOD0.obj", CurrentScene);
 	CurrentScene->AddObject(nomad);
 }
 
@@ -244,6 +244,13 @@ void Render()
 	if (ImGui::Begin("Models"))
 	{
 		CurrentScene->DrawObjectList();
+	}
+	ImGui::End();
+
+	// Materials window
+	if (ImGui::Begin("Materials"))
+	{
+		CurrentScene->DrawMaterialList();
 	}
 	ImGui::End();
 

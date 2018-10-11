@@ -79,4 +79,19 @@ private:
 	float Value;
 };
 
-// TODO: Add concrete subclasses here (IntProperty, RGBProperty, RGBAProperty, MaterialProperty...)
+class MaterialObject;
+class MaterialProperty : public SceneProperty
+{
+public:
+	MaterialObject* GetValue() const;
+	void SetValue(MaterialObject* const value);
+
+	MaterialProperty(const std::wstring& name);
+	MaterialProperty(const std::wstring& name, MaterialObject* const value);
+	void OnGUI() override;
+
+private:
+	MaterialObject* Value;
+};
+
+// TODO: Add concrete subclasses here (IntProperty, RGBProperty, RGBAProperty...)

@@ -1,5 +1,7 @@
 #include "SceneProperty.h"
+#include "Objects/MaterialObject.h"
 #include "../ImGui/imgui.h"
+#include "../AOBaker.h"
 
 using namespace DirectX::SimpleMath;
 
@@ -113,4 +115,51 @@ FloatProperty::FloatProperty(const std::wstring& name, const float& value) : Sce
 void FloatProperty::OnGUI()
 {
 	ImGui::InputFloat(this->NameData, &this->Value, 0.1, 1.0f, 2);
+}
+
+MaterialObject* MaterialProperty::GetValue() const
+{
+	return this->Value;
+}
+
+void MaterialProperty::SetValue(MaterialObject* const value)
+{
+	this->Value = value;
+}
+
+MaterialProperty::MaterialProperty(const std::wstring& name) : MaterialProperty(name, nullptr) { }
+
+MaterialProperty::MaterialProperty(const std::wstring& name, MaterialObject* const value) : SceneProperty(name), Value(value) { }
+
+void MaterialProperty::OnGUI()
+{
+	const char* currentName = "(No material)";
+
+	if (GetValue())
+		currentName = GetValue()->GetNameGUI();
+
+	if (ImGui::BeginCombo("Material", currentName, ImGuiComboFlags_NoArrowButton))
+	{
+		for (size_t i = 0; i < GetCurrentScene()->GetMaterialCount(); i++)
+		{
+			MaterialObject* material = GetCurrentScene()->GetMaterial(i);
+			bool isSelected = material == GetValue();
+			if (ImGui::Selectable(material->GetNameGUI(), &isSelected))
+				SetValue(material);
+			if (isSelected)
+				ImGui::SetItemDefaultFocus();
+		}
+		ImGui::EndCombo();
+	}
+
+	/*static const std::string EmptyName = "(No material)";
+	
+	if (GetValue())
+	{
+		ImGui::LabelText(this->NameData, "%s", GetValue()->GetNameGUI());
+	}
+	else
+	{
+		ImGui::LabelText(this->NameData, "%s", EmptyName.c_str());
+	}*/
 }

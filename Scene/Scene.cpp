@@ -129,7 +129,7 @@ void Scene::DrawObjectList()
 			selectedItem = i;
 
 	ImGui::PushItemWidth(-1.0f);
-	if (ImGui::ListBox("Bake Objects", &selectedItem, &EnumerateBakeObjects, this, this->BakeObjects.size(), 10))
+	if (ImGui::ListBox("", &selectedItem, &EnumerateBakeObjects, this, this->BakeObjects.size(), 10))
 	{
 		for (size_t i = 0; i < this->BakeObjects.size(); i++)
 		{
@@ -154,7 +154,7 @@ void Scene::DrawMaterialList()
 			selectedItem = i;
 
 	ImGui::PushItemWidth(-1.0f);
-	if (ImGui::ListBox("Materials", &selectedItem, &EnumerateMaterials, this, this->Materials.size(), 10))
+	if (ImGui::ListBox("", &selectedItem, &EnumerateMaterials, this, this->Materials.size(), 10))
 	{
 		for (size_t i = 0; i < this->Materials.size(); i++)
 		{

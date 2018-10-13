@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../SceneObject.h"
+#include "../BakeTexture.h"
 
 class MaterialObject : public SceneObject 
 {
@@ -11,4 +12,5 @@ public:
 
 private:
 	FloatProperty AOMaxRange;
+	BakeTexture* AOTexture;
 };

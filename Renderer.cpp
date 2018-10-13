@@ -25,9 +25,11 @@ D3D12_RECT ScissorRect = { };
 IDXGISwapChain3* Renderer::SwapChain = nullptr;
 ID3D12Device* Renderer::Device = nullptr;
 ID3D12Resource* Backbuffers[BufferCount] = { };
+ID3D12Resource* DepthStencilBuffer = nullptr;
 ID3D12CommandAllocator* Renderer::CommandAllocator = nullptr;
 ID3D12CommandQueue* Renderer::CommandQueue = nullptr;
 ID3D12DescriptorHeap* Renderer::RTVHeap = nullptr;
+ID3D12DescriptorHeap* Renderer::DSVHeap = nullptr;
 ID3D12DescriptorHeap* Renderer::SRVHeap = nullptr;
 ID3D12GraphicsCommandList* CommandList = nullptr;
 ID3D12Resource* UploadBuffer = nullptr;
@@ -90,6 +92,40 @@ HRESULT InitializeBuffers(const int& width, const int& height)
 		rtvHandle.ptr += UINT64(RTVIncrementSize);
 	}
 
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvdesc = { };
+	dsvdesc.Flags = D3D12_DSV_FLAG_NONE;
+	dsvdesc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsvdesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	D3D12_CLEAR_VALUE dsvclear = { };
+	dsvclear.Format = DXGI_FORMAT_D32_FLOAT;
+	dsvclear.DepthStencil.Depth = 1.0f;
+	dsvclear.DepthStencil.Stencil = 0;
+	D3D12_HEAP_PROPERTIES dsvheap = { };
+	dsvheap.Type = D3D12_HEAP_TYPE_DEFAULT;
+	dsvheap.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	dsvheap.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	dsvheap.CreationNodeMask = 0;
+	dsvheap.VisibleNodeMask = 0;
+	D3D12_RESOURCE_DESC resdesc = { };
+	resdesc.Alignment = 0;
+	resdesc.DepthOrArraySize = 1;
+	resdesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resdesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+	resdesc.Format = DXGI_FORMAT_D32_FLOAT;
+	resdesc.Height = BufferHeight;
+	resdesc.Width = BufferWidth;
+	resdesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resdesc.MipLevels = 1;
+	resdesc.SampleDesc.Count = 1;
+	resdesc.SampleDesc.Quality = 0;
+	hr = Renderer::Device->CreateCommittedResource(&dsvheap, D3D12_HEAP_FLAG_NONE, &resdesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &dsvclear, IID_PPV_ARGS(&DepthStencilBuffer));
+	if (FAILED(hr))
+	{
+		OutputDebugStringW(L"Failed to create the depth-stencil buffer.");
+		return hr;
+	}
+	Renderer::Device->CreateDepthStencilView(DepthStencilBuffer, &dsvdesc, Renderer::DSVHeap->GetCPUDescriptorHandleForHeapStart());
+
 	Viewport.TopLeftX = 0;
 	Viewport.TopLeftY = 0;
 	Viewport.Width = (float)width;
@@ -112,6 +148,8 @@ void DisposeBuffers()
 		Backbuffers[i]->Release();
 		Backbuffers[i] = nullptr;
 	}
+
+	DepthStencilBuffer->Release();
 }
 
 IDXGIAdapter1* GetBestAdapter(IDXGIFactory4* const factory)
@@ -249,6 +287,18 @@ HRESULT Renderer::Initialize(const int& bufferWidth, const int& bufferHeight)
 	}
 	RTVHeap->SetName(L"Render Target View Heap");
 	RTVIncrementSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	heapdesc = { };
+	heapdesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	heapdesc.NumDescriptors = 1;
+	heapdesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	hr = Device->CreateDescriptorHeap(&heapdesc, IID_PPV_ARGS(&DSVHeap));
+	if (FAILED(hr))
+	{
+		OutputDebugStringW(L"Failed to create the DSV descriptor heap.");
+		return hr;
+	}
+	DSVHeap->SetName(L"Depth Stencil View Heap");
 
 	heapdesc = { };
 	heapdesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -428,11 +478,15 @@ void Renderer::BeginScene()
 	CommandList->RSSetScissorRects(1, &ScissorRect);
 	CommandList->ResourceBarrier(1, &bardesc);
 
-	D3D12_CPU_DESCRIPTOR_HANDLE backbuffer = {};
+	D3D12_CPU_DESCRIPTOR_HANDLE backbuffer = { };
 	backbuffer.ptr = RTVHeap->GetCPUDescriptorHandleForHeapStart().ptr + BufferIndex * RTVIncrementSize;
 
-	CommandList->OMSetRenderTargets(1, &backbuffer, false, nullptr);
+	D3D12_CPU_DESCRIPTOR_HANDLE depthstencilview = { };
+	depthstencilview.ptr = DSVHeap->GetCPUDescriptorHandleForHeapStart().ptr;
+
+	CommandList->OMSetRenderTargets(1, &backbuffer, false, &depthstencilview);
 	CommandList->ClearRenderTargetView(backbuffer, ClearColor, 0, nullptr);
+	CommandList->ClearDepthStencilView(depthstencilview, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	CommandList->SetDescriptorHeaps(1, &SRVHeap);
 
 	Projection = DirectX::SimpleMath::Matrix::CreatePerspectiveFieldOfView(3.1415926535f/3.0f, (float)Window::GetClientWidth() / Window::GetClientHeight(), 0.5f, 1000.0f);
@@ -510,6 +564,9 @@ void Renderer::Dispose()
 
 	SRVHeap->Release();
 	SRVHeap = nullptr;
+
+	DSVHeap->Release();
+	DSVHeap = nullptr;
 
 	RTVHeap->Release();
 	RTVHeap = nullptr;

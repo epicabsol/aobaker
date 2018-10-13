@@ -5,6 +5,7 @@
 
 Scene* GetCurrentScene();
 RenderShader* GetWorldShader();
+RenderShader* GetBakeObjectShader();
 RenderMaterial* GetTestMaterial();
 RenderMesh* GetTestMesh();
 void Initialize();

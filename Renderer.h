@@ -16,6 +16,7 @@ namespace Renderer
 	extern ID3D12CommandAllocator* CommandAllocator;
 	extern ID3D12CommandQueue* CommandQueue;
 	extern ID3D12DescriptorHeap* RTVHeap;
+	extern ID3D12DescriptorHeap* DSVHeap;
 	extern ID3D12DescriptorHeap* SRVHeap;
 
 	HRESULT Initialize(const int& bufferWidth, const int& bufferHeight);

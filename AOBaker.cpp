@@ -10,8 +10,9 @@
 using namespace DirectX::SimpleMath;
 
 const std::wstring WorldVertexShaderFilename = L"data/WorldVertexShader.cso";
-const std::wstring ScreenVertexShaderFilename = L"data/ScreenVertexShader.cso";
+//const std::wstring ScreenVertexShaderFilename = L"data/ScreenVertexShader.cso";
 const std::wstring ColorPixelShaderFilename = L"data/ColorPixelShader.cso";
+const std::wstring BakeObjectPixelShaderFilename = L"data/BakeObjectPixelShader.cso";
 
 bool IsLeftMouseDown = false;
 bool IsMiddleMouseDown = false;
@@ -22,6 +23,7 @@ bool IsKeyDown[256];
 float CameraSpeed = 10.0f;
 
 RenderShader* WorldShader = nullptr;
+RenderShader* BakeObjectShader = nullptr;
 
 RenderMaterial* TestMaterial = nullptr;
 
@@ -55,6 +57,11 @@ Scene* GetCurrentScene()
 RenderShader* GetWorldShader()
 {
 	return WorldShader;
+}
+
+RenderShader* GetBakeObjectShader()
+{
+	return BakeObjectShader;
 }
 
 RenderMaterial* GetTestMaterial()
@@ -108,15 +115,22 @@ void Initialize()
 	worldDesc.Desc_1_1.NumStaticSamplers = 0;
 	worldDesc.Desc_1_1.pStaticSamplers = nullptr;
 
+	// BakeObject shader
+	BakeObjectShader = RenderShader::Create(worldDesc, WorldVertexShaderFilename, BakeObjectPixelShaderFilename, WorldInputElements, _ARRAYSIZE(WorldInputElements));
+	if (BakeObjectShader == nullptr)
+	{
+		OutputDebugStringW(L"Failed to create BakeObjectShader.");
+		DebugBreak();
+	}
+
+	// Test shader and material
 	WorldShader = RenderShader::Create(worldDesc, WorldVertexShaderFilename, ColorPixelShaderFilename, WorldInputElements, _ARRAYSIZE(WorldInputElements));
 	if (WorldShader == nullptr)
 	{
 		OutputDebugStringW(L"Failed to create WorldShader.");
 		DebugBreak();
 	}
-
-	// Test material
-	TestMaterial = new RenderMaterial(WorldShader, nullptr, 0);
+	TestMaterial = new RenderMaterial(BakeObjectShader, nullptr, 0);
 
 	// Test rendermesh
 	TestMesh = new RenderMesh(TestMaterial, PrimitiveType::Triangle, TestMeshVertices, 3, TestMeshIndices, 6);
@@ -351,6 +365,13 @@ void Dispose()
 	{
 		delete TestMaterial;
 		TestMaterial = nullptr;
+	}
+
+	if (BakeObjectShader != nullptr)
+	{
+		BakeObjectShader->Dispose();
+		delete BakeObjectShader;
+		BakeObjectShader = nullptr;
 	}
 
 	if (WorldShader != nullptr)

@@ -54,6 +54,11 @@ RenderMaterial* RenderMesh::GetMaterial() const
 	return this->Material;
 }
 
+void RenderMesh::SetMaterial(RenderMaterial* const material)
+{
+	this->Material = material;
+}
+
 int RenderMesh::GetVertexCount() const
 {
 	return this->VertexCount;

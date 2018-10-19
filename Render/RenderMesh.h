@@ -27,6 +27,7 @@ class RenderMesh
 public:
 	RenderMesh(RenderMaterial* const material, const PrimitiveType& type, RenderVertex* const vertices, const int& vertexCount, unsigned int* const indices, const int& indexCount);
 	RenderMaterial* GetMaterial() const;
+	void SetMaterial(RenderMaterial* const material);
 	int GetVertexCount() const;
 	RenderVertex* GetVertices() const;
 	int GetIndexCount() const;

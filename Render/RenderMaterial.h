@@ -14,6 +14,7 @@ public:
 	void SetTexture(RenderTexture* const texture, const int& slot);
 
 	RenderMaterial(RenderShader* const shader, RenderTexture** const textures, const int& textureCount);
+	~RenderMaterial();
 
 private:
 	RenderTexture** Textures = nullptr;

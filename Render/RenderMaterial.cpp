@@ -23,6 +23,13 @@ void RenderMaterial::SetTexture(RenderTexture* const texture, const int& slot)
 RenderMaterial::RenderMaterial(RenderShader* const shader, RenderTexture** const textures, const int& textureCount)
 {
 	this->Shader = shader;
-	this->Textures = textures;
 	this->TextureCount = textureCount;
+	this->Textures = new RenderTexture*[this->TextureCount];
+	for (size_t i = 0; i < this->TextureCount; i++)
+		this->Textures[i] = textures[i];
+}
+
+RenderMaterial::~RenderMaterial()
+{
+	delete[] this->Textures;
 }

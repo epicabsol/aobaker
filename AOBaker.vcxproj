@@ -185,6 +185,7 @@
       <FileType>Document</FileType>
     </None>
     <ClCompile Include="Render\RenderTexture.cpp" />
+    <ClCompile Include="Scene\BakeTexture.cpp" />
     <ClCompile Include="Scene\Objects\BakeObject.cpp" />
     <ClCompile Include="Scene\Objects\MaterialObject.cpp" />
     <ClCompile Include="Scene\Objects\TransformObject.cpp" />

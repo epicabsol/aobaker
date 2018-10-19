@@ -8,6 +8,7 @@ RenderShader* GetWorldShader();
 RenderShader* GetBakeObjectShader();
 RenderMaterial* GetTestMaterial();
 RenderMesh* GetTestMesh();
+RenderTexture* GetTestTexture();
 void Initialize();
 void Update(const float& dT);
 void Render();

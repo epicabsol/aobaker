@@ -8,7 +8,13 @@ struct PS_IN
 	float4 color : COLOR0;
 };
 
+Texture2D AOTexture : register(t0);
+SamplerState Sampler {
+
+};
+
 float4 main(PS_IN input) : SV_TARGET
 {
-	return float4(input.norm, 1.0f);
+	return AOTexture.Sample(Sampler, input.uv);
+	//return float4(input.norm, 1.0f);
 }

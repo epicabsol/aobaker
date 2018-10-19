@@ -15,6 +15,7 @@ const unsigned int BufferCount = 2;
 const bool UseSoftwareRenderer = false;
 const DXGI_FORMAT BufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 const size_t UploadBufferSize = 1024 * 1024 * 30; // 30MB
+const size_t MaxTextureCount = 32;
 
 int BufferWidth = 0;
 int BufferHeight = 0;
@@ -37,6 +38,8 @@ ID3D12Resource* UploadBuffer = nullptr;
 unsigned int BufferIndex = 0;
 unsigned int RTVIncrementSize = 0;
 unsigned int SRVIncrementSize = 0;
+size_t NextTextureIndex = 0;
+size_t ImGuiFontTextureIndex = 0;
 
 ID3D12Fence* FrameCompleteFence = nullptr;
 unsigned long long CurrentFrameID = 1;
@@ -302,7 +305,7 @@ HRESULT Renderer::Initialize(const int& bufferWidth, const int& bufferHeight)
 
 	heapdesc = { };
 	heapdesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	heapdesc.NumDescriptors = 1;
+	heapdesc.NumDescriptors = MaxTextureCount;
 	heapdesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	hr = Device->CreateDescriptorHeap(&heapdesc, IID_PPV_ARGS(&SRVHeap));
 	if (FAILED(hr))
@@ -310,7 +313,7 @@ HRESULT Renderer::Initialize(const int& bufferWidth, const int& bufferHeight)
 		OutputDebugStringW(L"Failed to create the SRV descriptor heap.");
 		return hr;
 	}
-	SRVHeap->SetName(L"Shader View Heap");
+	SRVHeap->SetName(L"Shader Resource View Heap");
 
 	// Frame resources (RTVs)
 	hr = InitializeBuffers(bufferWidth, bufferHeight);
@@ -348,6 +351,7 @@ HRESULT Renderer::Initialize(const int& bufferWidth, const int& bufferHeight)
 
 	ImGui_ImplWin32_Init(Window::GetHandle());
 	ImGui_ImplDX12_Init(Device, BufferCount, BufferFormat, SRVHeap->GetCPUDescriptorHandleForHeapStart(), SRVHeap->GetGPUDescriptorHandleForHeapStart());
+	ImGuiFontTextureIndex = AllocateTextureIndex();
 
 	ImGui::StyleColorsDark();
 
@@ -697,6 +701,80 @@ HRESULT Renderer::UploadData(ID3D12Resource* const destination, void* const data
 	return hr;
 }
 
+HRESULT Renderer::UploadTexture(ID3D12Resource* const destination, void* const data, const size_t& length, const int& width, const int& height, const DXGI_FORMAT& format)
+{
+	HRESULT hr = S_OK;
+	// Copy to upload buffer
+	// ASSUMPTION: The upload buffer is not currently in use by the GPU.
+	if (length > UploadBufferSize)
+	{
+		OutputDebugStringW(L"Failed to upload data: Data length was larger than the upload buffer!");
+		return E_OUTOFMEMORY;
+	}
+
+	void* UploadBufferData = nullptr;
+	D3D12_RANGE uploadBufferReadRange = { };
+	uploadBufferReadRange.Begin = 0;
+	uploadBufferReadRange.End = 0;
+	hr = UploadBuffer->Map(0, &uploadBufferReadRange, &UploadBufferData);
+	if (FAILED(hr))
+	{
+		OutputDebugStringW(L"Failed to map upload buffer.");
+		return hr;
+	}
+	memcpy(UploadBufferData, data, length);
+	UploadBuffer->Unmap(0, nullptr);
+	UploadBufferData = nullptr;
+
+	// Queue the GPU copy
+	CommandList->Reset(CommandAllocator, nullptr);
+	//CommandList->CopyResource(destination, UploadBuffer);
+
+	D3D12_RESOURCE_DESC destDesc = destination->GetDesc();
+
+	D3D12_TEXTURE_COPY_LOCATION srcLocation = { };
+	srcLocation.PlacedFootprint.Footprint.Depth = 1;
+	srcLocation.PlacedFootprint.Footprint.Format = format;
+	srcLocation.PlacedFootprint.Footprint.Height = height;
+	srcLocation.PlacedFootprint.Footprint.RowPitch = length / height;
+	srcLocation.PlacedFootprint.Footprint.Width = width;
+	srcLocation.PlacedFootprint.Offset = 0;
+	srcLocation.pResource = UploadBuffer;
+	//srcLocation.SubresourceIndex = 0;
+	srcLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+	D3D12_TEXTURE_COPY_LOCATION dstLocation = { };
+	dstLocation.pResource = destination;
+	dstLocation.SubresourceIndex = 0;
+	/*dstLocation.PlacedFootprint.Footprint.Depth = 1;
+	dstLocation.PlacedFootprint.Footprint.Format = format;
+	dstLocation.PlacedFootprint.Footprint.Height = height;
+	dstLocation.PlacedFootprint.Footprint.RowPitch = length / height;
+	dstLocation.PlacedFootprint.Footprint.Width = width;
+	dstLocation.PlacedFootprint.Offset = 0;*/
+	//dstLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+	dstLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+	CommandList->CopyTextureRegion(&dstLocation, 0, 0, 0, &srcLocation, nullptr);
+
+
+
+
+	CommandList->Close();
+	ID3D12CommandList* commandLists[] = { CommandList };
+	CommandQueue->ExecuteCommandLists(1, commandLists);
+
+	hr = Renderer::CommandQueue->Signal(UploadFence, UploadFenceValue);
+
+	if (UploadFence->GetCompletedValue() < UploadFenceValue)
+	{
+		UploadFence->SetEventOnCompletion(UploadFenceValue, UploadFenceEvent);
+		WaitForSingleObject(UploadFenceEvent, INFINITE);
+	}
+	UploadFenceValue++;
+
+
+	return hr;
+}
+
 void Renderer::SetView(const DirectX::SimpleMath::Matrix& view)
 {
 	View = view;
@@ -725,5 +803,25 @@ void Renderer::Render(RenderMesh* const mesh, const DirectX::SimpleMath::Matrix&
 	CommandList->IASetIndexBuffer(mesh->GetIndexBufferView());
 	CommandList->IASetVertexBuffers(0, 1, mesh->GetVertexBufferView());
 	CommandList->SetPipelineState(mesh->GetMaterial()->GetShader()->GetPipelineState());
+
+	for (int i = 0; i < mesh->GetMaterial()->GetTextureCount(); i++)
+	{
+		//CommandList->SetGraphicsRootShaderResourceView(i + 1, mesh->GetMaterial()->GetTextures()[i]->GetGPUVirtualAddress());
+		D3D12_GPU_DESCRIPTOR_HANDLE handle;
+		handle.ptr = Renderer::SRVHeap->GetGPUDescriptorHandleForHeapStart().ptr + mesh->GetMaterial()->GetTextures()[i]->GetIndex() * RTVIncrementSize;
+		CommandList->SetGraphicsRootDescriptorTable(1, handle);
+
+	}
+
 	CommandList->DrawIndexedInstanced(mesh->GetIndexCount(), 1, 0, 0, 0);
+}
+
+size_t Renderer::AllocateTextureIndex()
+{
+	if (NextTextureIndex == MaxTextureCount)
+	{
+		DebugBreak();
+		return 0;
+	}
+	return NextTextureIndex++;
 }

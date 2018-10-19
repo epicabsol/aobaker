@@ -35,6 +35,8 @@ namespace Renderer
 
 	HRESULT UploadData(ID3D12Resource* const destination, void* const data, const size_t& length);
 
+	HRESULT UploadTexture(ID3D12Resource* const destination, void* const data, const size_t& length, const int& width, const int& height, const DXGI_FORMAT& format);
+
 	void SetView(const DirectX::SimpleMath::Matrix& view);
 
 	DirectX::SimpleMath::Matrix GetView();
@@ -42,4 +44,6 @@ namespace Renderer
 	DirectX::SimpleMath::Matrix GetProjection();
 
 	void Render(RenderMesh* const mesh, const DirectX::SimpleMath::Matrix& transform);
+
+	size_t AllocateTextureIndex();
 }

@@ -43,6 +43,8 @@ void BakeObject::Section::SetMeshData(Vertex* const vertices, const int& vertexC
 
 void BakeObject::Section::Render(const DirectX::SimpleMath::Matrix& transform) const
 {
+	// HACK: Constantly set the preview material
+	this->PreviewMesh->SetMaterial(this->GetMaterial()->GetPreviewMaterial());
 	Renderer::Render(this->PreviewMesh, transform);
 	//Renderer::Render(GetTestMesh(), transform);
 }

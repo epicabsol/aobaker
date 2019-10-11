@@ -7,7 +7,7 @@ It isn't far enough along to actually bake textures yet, sorry.
 
 Task List:
 ----------
- - [X] Direct3D12 rendering with the UI system from the Dear ImGui project
+ - [X] Direct3D11 rendering with the UI system from the Dear ImGui project
  - [X] Property system (to facilitate serialization and property UI)
  - [X] Mesh rendering
  - [X] Property editing and transform gizmos from the ImGuizmo project
@@ -15,4 +15,4 @@ Task List:
  - [ ] Project saving & loading
  - [ ] Texture rendering / loading / saving
  - [ ] Bake UI
- - [ ] Actual AO baking using NVIDIA's OptiX project
+ - [ ] Actual AO baking using the Radeon Rays project

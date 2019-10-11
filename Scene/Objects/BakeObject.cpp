@@ -133,9 +133,9 @@ void BakeObject::ImportAiNode(const aiScene* scene, aiNode* node, const aiMatrix
 		scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_NAME, aiMatName);
 		//std::wstring materialName = StringConverter.from_bytes(scene->mMaterials[mesh->mMaterialIndex]->GetName().C_Str());
 		std::wstring materialName = StringConverter.from_bytes(aiMatName.C_Str());
-		OutputDebugStringW(L"Material: '");
+		/*OutputDebugStringW(L"Material: '");
 		OutputDebugStringW(materialName.c_str());
-		OutputDebugStringW(L"'\n");
+		OutputDebugStringW(L"'\n");*/
 		int existingIndex = targetScene->FindMaterial(materialName);
 		if (existingIndex > -1)
 		{
@@ -176,6 +176,8 @@ void BakeObject::LoadFromFile(const std::wstring& filename, Scene* const targetS
 
 	stream.close();*/
 
+	OutputDebugStringW(L"Loading object from file...\n");
+
 	Assimp::Importer importer;
 
 	const aiScene* scene = importer.ReadFile((std::string)StringConverter.to_bytes(filename), aiProcess_ConvertToLeftHanded | aiProcess_FixInfacingNormals | aiProcess_GenNormals | aiProcess_ImproveCacheLocality);
@@ -188,6 +190,8 @@ void BakeObject::LoadFromFile(const std::wstring& filename, Scene* const targetS
 	
 	// Add all nodes in the scene
 	this->ImportAiNode(scene, scene->mRootNode, aiMatrix4x4(), targetScene);
+
+	OutputDebugStringW(L"Load complete.\n");
 }
 
 BakeObject::Vertex CubeVertices[] = 

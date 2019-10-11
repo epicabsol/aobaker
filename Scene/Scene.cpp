@@ -193,4 +193,6 @@ Scene::~Scene()
 {
 	for (size_t i = 0; i < this->BakeObjects.size(); i++)
 		delete this->BakeObjects[i];
+	for (size_t i = 0; i < this->Materials.size(); i++)
+		delete this->Materials[i];
 }

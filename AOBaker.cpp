@@ -337,6 +337,12 @@ void Dispose()
 		TestMaterial = nullptr;
 	}
 
+	if (TestTexture != nullptr)
+	{
+		delete TestTexture;
+		TestTexture = nullptr;
+	}
+
 	if (BakeObjectShader != nullptr)
 	{
 		delete BakeObjectShader;

@@ -8,6 +8,11 @@ RenderShader::RenderShader(ID3D11InputLayout* inputLayout, ID3D11VertexShader* v
 }
 
 RenderShader::~RenderShader() {
+	if (this->InputLayout != nullptr)
+	{
+		this->InputLayout->Release();
+		this->InputLayout = nullptr;
+	}
 	if (this->VertexShader != nullptr)
 	{
 		this->VertexShader->Release();

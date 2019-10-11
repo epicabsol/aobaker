@@ -32,12 +32,8 @@ RenderMesh::RenderMesh(ID3D11Device* device, RenderMaterial* const material, con
 		for (int i = 0; i < this->VertexCount; i++)
 			this->Vertices[i] = vertices[i];
 
-		OutputDebugStringW(L"Creating RenderMesh with vertex count = ");
+		/*OutputDebugStringW(L"Creating RenderMesh with vertex count = ");
 		OutputDebugStringW(std::to_wstring(this->VertexCount).c_str());
-		/*OutputDebugStringW(L", start is = ");
-		OutputDebugStringW(std::to_wstring((size_t)this->Vertices).c_str());
-		OutputDebugStringW(L", end is = ");
-		OutputDebugStringW(std::to_wstring((size_t)(this->Vertices) + this->VertexCount * sizeof(RenderVertex)).c_str());
 		OutputDebugStringW(L"\n");*/
 	}
 	this->IndexCount = indexCount;

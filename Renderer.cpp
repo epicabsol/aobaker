@@ -28,6 +28,7 @@ RenderTexture* DepthStencilBuffer = nullptr;
 
 ID3D11DepthStencilState* StandardDepthStencilState = nullptr;
 ID3D11RasterizerState* StandardRasterizerState = nullptr;
+ID3D11SamplerState* StandardSamplerState = nullptr;
 
 DirectX::SimpleMath::Matrix View = DirectX::SimpleMath::Matrix::Identity;
 DirectX::SimpleMath::Matrix Projection = DirectX::SimpleMath::Matrix::Identity;
@@ -190,6 +191,13 @@ HRESULT Renderer::Initialize(const int& bufferWidth, const int& bufferHeight)
 	rsdesc.CullMode = D3D11_CULL_BACK;
 	hr = Device->CreateRasterizerState(&rsdesc, &StandardRasterizerState);
 
+	D3D11_SAMPLER_DESC sdesc = { };
+	sdesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	sdesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	sdesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	sdesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	hr = Device->CreateSamplerState(&sdesc, &StandardSamplerState);
+
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 
@@ -282,8 +290,22 @@ void Renderer::Dispose()
 	ImGui_ImplDX11_InvalidateDeviceObjects();
 	ImGui_ImplDX11_Shutdown();
 
+	delete WorldConstantBuffer;
+
+	StandardDepthStencilState->Release();
+	StandardDepthStencilState = nullptr;
+
+	StandardRasterizerState->Release();
+	StandardRasterizerState = nullptr;
+
+	StandardSamplerState->Release();
+	StandardSamplerState = nullptr;
+
 	SwapChain->Release();
 	SwapChain = nullptr;
+
+	ImmediateContext->Release();
+	ImmediateContext = nullptr;
 
 	Device->Release();
 	Device = nullptr;
@@ -416,6 +438,7 @@ void Renderer::Render(RenderMesh* const mesh, const DirectX::SimpleMath::Matrix&
 	{
 		texture = mesh->GetMaterial()->GetTextures()[i]->GetSRV();
 		ImmediateContext->PSSetShaderResources(i, 1, &texture);
+		ImmediateContext->PSSetSamplers(i, 1, &StandardSamplerState);
 	}
 
 	ImmediateContext->DrawIndexed(mesh->GetIndexCount(), 0, 0);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <d3d12.h>
+#include <d3d11.h>
 #include "../SimpleMath.h"
 #include "RenderMaterial.h"
 
@@ -25,7 +25,8 @@ public:
 class RenderMesh
 {
 public:
-	RenderMesh(RenderMaterial* const material, const PrimitiveType& type, RenderVertex* const vertices, const int& vertexCount, unsigned int* const indices, const int& indexCount);
+	RenderMesh(ID3D11Device* device, RenderMaterial* const material, const PrimitiveType& type, RenderVertex* const vertices, const int& vertexCount, unsigned int* const indices, const int& indexCount);
+	~RenderMesh();
 	RenderMaterial* GetMaterial() const;
 	void SetMaterial(RenderMaterial* const material);
 	int GetVertexCount() const;
@@ -33,10 +34,10 @@ public:
 	int GetIndexCount() const;
 	unsigned int* GetIndices() const;
 	PrimitiveType GetPrimitiveType() const;
-	D3D12_VERTEX_BUFFER_VIEW* GetVertexBufferView();
-	D3D12_INDEX_BUFFER_VIEW* GetIndexBufferView();
-	HRESULT UploadBuffers();
-	void Dispose();
+	ID3D11Buffer* GetVertexBuffer();
+	ID3D11Buffer* GetIndexBuffer();
+	//HRESULT UploadBuffers();
+	//void Dispose();
 
 private:
 	RenderMaterial* Material = nullptr;
@@ -46,8 +47,6 @@ private:
 	unsigned int* Indices = { };
 	PrimitiveType Type = PrimitiveType::Triangle;
 
-	ID3D12Resource1* VertexBuffer = nullptr;
-	ID3D12Resource1* IndexBuffer = nullptr;
-	D3D12_VERTEX_BUFFER_VIEW VertexBufferView = { };
-	D3D12_INDEX_BUFFER_VIEW IndexBufferView = { };
+	ID3D11Buffer* VertexBuffer = nullptr;
+	ID3D11Buffer* IndexBuffer = nullptr;
 };

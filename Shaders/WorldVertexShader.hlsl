@@ -23,7 +23,7 @@ struct WorldConstants
 	float4x4 projection;
 };
 
-ConstantBuffer<WorldConstants> Constants : register(b0);
+WorldConstants Constants : register(b0);
 
 VS_OUT main(VS_IN input)
 {

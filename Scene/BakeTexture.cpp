@@ -1,6 +1,7 @@
 #include "BakeTexture.h"
 
 #include <stdint.h>
+#include "../Renderer.h"
 
 BakeTexture::BakeTexture(const int& width, const int& height, const int& channelCount, const int& bytesPerChannel)
 {
@@ -37,7 +38,7 @@ BakeTexture::BakeTexture(const int& width, const int& height, const int& channel
 		else if (channelCount == 2)
 			this->PreviewFormat = DXGI_FORMAT_R32G32_FLOAT;
 		else if (channelCount == 3)
-			this->PreviewFormat == DXGI_FORMAT_R32G32B32_FLOAT;
+			this->PreviewFormat = DXGI_FORMAT_R32G32B32_FLOAT;
 		else if (channelCount == 4)
 			this->PreviewFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
 		else
@@ -57,9 +58,9 @@ BakeTexture::BakeTexture(const int& width, const int& height, const int& channel
 	this->ChannelCount = channelCount;
 	this->BytesPerChannel = bytesPerChannel;
 	this->DataLength = width * height * channelCount * bytesPerChannel;
-	this->Data = new char[this->DataLength];
+	this->Data = new unsigned char[this->DataLength];
 	memset(this->Data, 0xFF, this->DataLength);
-	this->GPUPreview = new RenderTexture(this->Width, this->Height, this->PreviewFormat);
+	this->GPUPreview = RenderTexture::Create(this->Width, this->Height, this->PreviewFormat, this->Data, this->DataLength, true); //new RenderTexture(this->Width, this->Height, this->PreviewFormat);
 	this->RefreshPreview();
 	//this->FillRandom();
 }
@@ -72,7 +73,7 @@ BakeTexture::~BakeTexture()
 	this->GPUPreview = nullptr;
 }
 
-char* BakeTexture::GetData() const
+unsigned char* BakeTexture::GetData() const
 {
 	return this->Data;
 }
@@ -87,7 +88,7 @@ RenderTexture* BakeTexture::GetGPUPreview() const
 	return this->GPUPreview;
 }
 
-void BakeTexture::UpdateData(char* data, size_t length)
+void BakeTexture::UpdateData(unsigned char* data, size_t length)
 {
 	if (length != this->DataLength)
 	{
@@ -101,7 +102,7 @@ void BakeTexture::UpdateData(char* data, size_t length)
 
 void BakeTexture::RefreshPreview() const
 {
-	this->GPUPreview->UploadData(this->Data, this->DataLength);
+	this->GPUPreview->UploadData(Renderer::ImmediateContext, this->Data, this->DataLength);
 }
 
 void BakeTexture::FillRandom()

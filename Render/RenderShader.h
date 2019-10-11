@@ -1,23 +1,22 @@
 #pragma once
 
-#include <d3d12.h>
+#include <d3d11.h>
 #include <string>
 
 class RenderShader
 {
 public:
-	ID3D12RootSignature* GetSignature() const;
-	ID3DBlob* GetVertexShader() const;
-	ID3DBlob* GetPixelShader() const;
-	ID3D12PipelineState* GetPipelineState() const;
-	void Dispose();
+	RenderShader(ID3D11InputLayout* inputLayout, ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader);
+	~RenderShader();
 
-	static RenderShader* Create(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& rootSignatureDescription, const std::wstring& vertexShaderFilename, const std::wstring& pixelShaderFilename, const D3D12_INPUT_ELEMENT_DESC* inputElements, const unsigned int& inputElementCount);
+	ID3D11InputLayout* GetInputLayout() const;
+	ID3D11VertexShader* GetVertexShader() const;
+	ID3D11PixelShader* GetPixelShader() const;
+
+	static RenderShader* Create(const D3D11_INPUT_ELEMENT_DESC* inputElements, size_t inputElementCount, const std::wstring& vertexShaderFilename, const std::wstring& pixelShaderFilename);
 
 private:
-	ID3D12RootSignature* Signature = nullptr;
-	ID3DBlob* VertexShader = nullptr;
-	ID3DBlob* PixelShader = nullptr;
-	ID3D12PipelineState* PipelineState = nullptr;
-	RenderShader();
+	ID3D11InputLayout* InputLayout;
+	ID3D11VertexShader* VertexShader;
+	ID3D11PixelShader* PixelShader;
 };

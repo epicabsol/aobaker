@@ -29,15 +29,16 @@ void BakeObject::Section::SetMeshData(Vertex* const vertices, const int& vertexC
 	// TODO: Assign the RenderMaterial from the BakeMaterial.
 	if (this->PreviewMesh != nullptr)
 	{
-		this->PreviewMesh->Dispose();
+		delete this->PreviewMesh;
+		this->PreviewMesh = nullptr;
 	}
 	RenderVertex* renderVertices = new RenderVertex[vertexCount];
 	for (int i = 0; i < vertexCount; i++)
 	{
 		renderVertices[i] = RenderVertex(vertices[i].Position, vertices[i].Normal, vertices[i].UV, Vector4::One);
 	}
-	this->PreviewMesh = new RenderMesh(GetTestMaterial(), PrimitiveType::Triangle, renderVertices, vertexCount, indices, indexCount);
-	this->PreviewMesh->UploadBuffers();
+	this->PreviewMesh = new RenderMesh(Renderer::Device, GetTestMaterial(), PrimitiveType::Triangle, renderVertices, vertexCount, indices, indexCount);
+	//this->PreviewMesh->UploadBuffers();
 	delete[] renderVertices;
 }
 
@@ -53,7 +54,7 @@ BakeObject::Section::~Section()
 {
 	if (this->PreviewMesh != nullptr)
 	{
-		this->PreviewMesh->Dispose();
+		delete this->PreviewMesh;
 		this->PreviewMesh = nullptr;
 	}
 }
@@ -64,7 +65,7 @@ void BakeObject::OnGUI()
 {
 	for (size_t i = 0; i < this->Sections.size(); i++)
 	{
-		if (ImGui::TreeNode((const void*)this->Sections[i], nullptr, "Section '%s'", this->Sections[i]->GetNameGUI()))
+		if (ImGui::TreeNode((const void*)this->Sections[i], "Section '%s'", this->Sections[i]->GetNameGUI()))
 		{
 			this->Sections[i]->OnGUI();
 			ImGui::TreePop();

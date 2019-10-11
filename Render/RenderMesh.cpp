@@ -21,7 +21,7 @@ RenderVertex::RenderVertex(const Vector3& position, const Vector3& normal, const
 	this->Color = color;
 }
 
-RenderMesh::RenderMesh(RenderMaterial* const material, const PrimitiveType& type, RenderVertex* const vertices, const int& vertexCount, unsigned int* const indices, const int& indexCount)
+RenderMesh::RenderMesh(ID3D11Device* device, RenderMaterial* const material, const PrimitiveType& type, RenderVertex* const vertices, const int& vertexCount, unsigned int* const indices, const int& indexCount)
 {
 	this->Material = material;
 	this->Type = type;
@@ -34,11 +34,11 @@ RenderMesh::RenderMesh(RenderMaterial* const material, const PrimitiveType& type
 
 		OutputDebugStringW(L"Creating RenderMesh with vertex count = ");
 		OutputDebugStringW(std::to_wstring(this->VertexCount).c_str());
-		OutputDebugStringW(L", start is = ");
+		/*OutputDebugStringW(L", start is = ");
 		OutputDebugStringW(std::to_wstring((size_t)this->Vertices).c_str());
 		OutputDebugStringW(L", end is = ");
 		OutputDebugStringW(std::to_wstring((size_t)(this->Vertices) + this->VertexCount * sizeof(RenderVertex)).c_str());
-		OutputDebugStringW(L"\n");
+		OutputDebugStringW(L"\n");*/
 	}
 	this->IndexCount = indexCount;
 	if (this->IndexCount > 0)
@@ -46,6 +46,52 @@ RenderMesh::RenderMesh(RenderMaterial* const material, const PrimitiveType& type
 		this->Indices = new unsigned int[this->IndexCount];
 		for (int i = 0; i < this->IndexCount; i++)
 			this->Indices[i] = indices[i];
+	}
+
+	D3D11_BUFFER_DESC desc = { };
+	desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	desc.ByteWidth = sizeof(RenderVertex) * this->VertexCount;
+	desc.CPUAccessFlags = 0;
+	desc.MiscFlags = 0;
+	desc.Usage = D3D11_USAGE_IMMUTABLE;
+	D3D11_SUBRESOURCE_DATA data = { };
+	data.pSysMem = &this->Vertices[0];
+	HRESULT hr = device->CreateBuffer(&desc, &data, &this->VertexBuffer);
+	if (FAILED(hr))
+	{
+		throw "o no";
+	}
+	desc.ByteWidth = sizeof(unsigned int) * this->IndexCount;
+	desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	data.pSysMem = &this->Indices[0];
+	hr = device->CreateBuffer(&desc, &data, &this->IndexBuffer);
+	if (FAILED(hr))
+	{
+		throw "o no";
+	}
+}
+
+RenderMesh::~RenderMesh()
+{
+	if (this->VertexBuffer != nullptr)
+	{
+		this->VertexBuffer->Release();
+		this->VertexBuffer = nullptr;
+	}
+	if (this->IndexBuffer != nullptr)
+	{
+		this->IndexBuffer->Release();
+		this->IndexBuffer = nullptr;
+	}
+	if (this->IndexCount > 0)
+	{
+		delete[] this->Indices;
+		this->Indices = nullptr;
+	}
+	if (this->VertexCount > 0)
+	{
+		delete[] this->Vertices;
+		this->Vertices = nullptr;
 	}
 }
 
@@ -84,17 +130,17 @@ PrimitiveType RenderMesh::GetPrimitiveType() const
 	return this->Type;
 }
 
-D3D12_VERTEX_BUFFER_VIEW* RenderMesh::GetVertexBufferView()
+ID3D11Buffer* RenderMesh::GetVertexBuffer()
 {
-	return &this->VertexBufferView;
+	return this->VertexBuffer;
 }
 
-D3D12_INDEX_BUFFER_VIEW* RenderMesh::GetIndexBufferView()
+ID3D11Buffer* RenderMesh::GetIndexBuffer()
 {
-	return &this->IndexBufferView;
+	return this->IndexBuffer;
 }
 
-HRESULT RenderMesh::UploadBuffers()
+/*HRESULT RenderMesh::UploadBuffers()
 {
 	D3D12_HEAP_PROPERTIES heapProps = { };
 	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -137,28 +183,4 @@ HRESULT RenderMesh::UploadBuffers()
 	this->IndexBufferView.Format = DXGI_FORMAT_R32_UINT;
 	this->IndexBufferView.BufferLocation = this->IndexBuffer->GetGPUVirtualAddress();
 	return S_OK;
-}
-
-void RenderMesh::Dispose()
-{
-	if (this->VertexBuffer != nullptr)
-	{
-		this->VertexBuffer->Release();
-		this->VertexBuffer = nullptr;
-	}
-	if (this->IndexBuffer != nullptr)
-	{
-		this->IndexBuffer->Release();
-		this->IndexBuffer = nullptr;
-	}
-	if (this->IndexCount > 0)
-	{
-		delete[] this->Indices;
-		this->Indices = nullptr;
-	}
-	if (this->VertexCount > 0)
-	{
-		delete[] this->Vertices;
-		this->Vertices = nullptr;
-	}
-}
+}*/

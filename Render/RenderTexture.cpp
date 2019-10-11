@@ -1,81 +1,90 @@
 #include "RenderTexture.h"
 #include "../Renderer.h"
 
-RenderTexture::RenderTexture(const int& width, const int& height, const DXGI_FORMAT& format)
+RenderTexture::RenderTexture(const int& width, const int& height, const DXGI_FORMAT& format, ID3D11Texture2D* gpuTexture, ID3D11ShaderResourceView* srv, ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv)
+	: Width(width), Height(height), Format(format), GPUTexture(gpuTexture), SRV(srv), RTV(rtv), DSV(dsv)
 {
 	if (width <= 0 || height <= 0)
 		throw L"Invalid size given to RenderTexture::RenderTexture.";
-
-	this->Index = Renderer::AllocateTextureIndex();
-	this->Width = width;
-	this->Height = height;
-	this->Format = format;
-
-	D3D12_RESOURCE_DESC resdesc = { };
-	resdesc.Alignment = 0;
-	resdesc.DepthOrArraySize = 1;
-	resdesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resdesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-	resdesc.Format = this->Format;
-	resdesc.Width = this->Width;
-	resdesc.Height = this->Height;
-	resdesc.MipLevels = 1;
-	resdesc.SampleDesc.Count = 1;
-	resdesc.SampleDesc.Quality = 0;
-	D3D12_HEAP_PROPERTIES heapdesc = { };
-	heapdesc.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	heapdesc.CreationNodeMask = 0;
-	heapdesc.VisibleNodeMask = 0;
-	heapdesc.Type = D3D12_HEAP_TYPE_DEFAULT;
-	heapdesc.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-	D3D12_CLEAR_VALUE cleardesc = { };
-	cleardesc.Format = this->Format;
-	
-	HRESULT hr;
-	hr = Renderer::Device->CreateCommittedResource(&heapdesc, D3D12_HEAP_FLAG_NONE, &resdesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&this->GPUResource));
-	if (FAILED(hr))
-	{
-		OutputDebugStringW(L"Failed to create resource for texture!");
-		DebugBreak();
-	}
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvdesc = { };
-	srvdesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvdesc.Format = this->Format;
-	srvdesc.Texture2D.MipLevels = 1;
-	srvdesc.Texture2D.MostDetailedMip = 0;
-	srvdesc.Texture2D.PlaneSlice = 0;
-	srvdesc.Texture2D.ResourceMinLODClamp = 0;
-	srvdesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	D3D12_CPU_DESCRIPTOR_HANDLE handle;
-	handle.ptr = Renderer::SRVHeap->GetCPUDescriptorHandleForHeapStart().ptr + this->Index * Renderer::Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	Renderer::Device->CreateShaderResourceView(this->GPUResource, &srvdesc, handle);
 }
 
 RenderTexture::~RenderTexture()
 {
-	this->GPUResource->Release();
-	this->GPUResource = nullptr;
+	if (this->DSV != nullptr)
+	{
+		this->DSV->Release();
+		this->DSV = nullptr;
+	}
+	if (this->RTV != nullptr)
+	{
+		this->RTV->Release();
+		this->RTV = nullptr;
+	}
+	if (this->SRV != nullptr)
+	{
+		this->SRV->Release();
+		this->SRV = nullptr;
+	}
+	if (this->GPUTexture != nullptr)
+	{
+		this->GPUTexture->Release();
+		this->GPUTexture = nullptr;
+	}
 }
 
-size_t RenderTexture::GetIndex() const
+int RenderTexture::GetWidth() const 
 {
-	return this->Index;
+	return this->Width;
 }
 
-void RenderTexture::UploadData(char* const data, const size_t& length) const
+int RenderTexture::GetHeight() const 
 {
-	Renderer::UploadTexture(this->GPUResource, (void*)data, length, this->Width, this->Height, this->Format);
+	return this->Height;
 }
 
-D3D12_GPU_VIRTUAL_ADDRESS RenderTexture::GetGPUVirtualAddress() const
+DXGI_FORMAT RenderTexture::GetFormat() const 
 {
-	return this->GPUResource->GetGPUVirtualAddress();
+	return this->Format;
 }
 
-void RenderTexture::UploadCheckerboard(char r, char g, char b) const
+ID3D11Texture2D* RenderTexture::GetGPUTexture() const
 {
-	char data[64 * 64 * 4];
+	return this->GPUTexture;
+}
+
+ID3D11ShaderResourceView* RenderTexture::GetSRV() const
+{
+	return this->SRV;
+}
+
+ID3D11RenderTargetView* RenderTexture::GetRTV() const
+{
+	return this->RTV;
+}
+
+ID3D11DepthStencilView* RenderTexture::GetDSV() const
+{
+	return this->DSV;
+}
+
+void RenderTexture::UploadData(ID3D11DeviceContext* context, const unsigned char* data, const size_t& length) const
+{
+	D3D11_MAPPED_SUBRESOURCE subresource = { };
+	HRESULT hr = context->Map(this->GPUTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &subresource);
+	if (FAILED(hr))
+	{
+		OutputDebugStringW(L"Failed to map texture for upload!\n");
+		return;
+	}
+
+	memcpy(subresource.pData, data, length);
+
+	context->Unmap(this->GPUTexture, 0);
+}
+
+void RenderTexture::UploadCheckerboard(ID3D11DeviceContext* context, char r, char g, char b) const
+{
+	static unsigned char data[64 * 64 * 4];
 	for (int y = 0; y < 64; y++)
 	{
 		for (int x = 0; x < 64; x++)
@@ -86,5 +95,38 @@ void RenderTexture::UploadCheckerboard(char r, char g, char b) const
 			data[y * 64 * 4 + x * 4 + 3] = 255; // A
 		}
 	}
-	this->UploadData(data, (size_t)(64 * 64 * 4));
+	this->UploadData(context, data, (size_t)(64 * 64 * 4));
+}
+
+RenderTexture* RenderTexture::Create(const int& width, const int& height, const DXGI_FORMAT& format, const unsigned char* initialData, const size_t initialDataLength, bool dynamic)
+{
+	ID3D11Texture2D* texture = nullptr;
+	ID3D11ShaderResourceView* srv = nullptr;
+
+	D3D11_TEXTURE2D_DESC texdesc = { };
+	texdesc.ArraySize = 1;
+	texdesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texdesc.CPUAccessFlags = dynamic ? D3D11_CPU_ACCESS_WRITE : 0;
+	texdesc.Format = format;
+	texdesc.Width = width;
+	texdesc.Height = height;
+	texdesc.MipLevels = 1;
+	texdesc.SampleDesc.Count = 1;
+	texdesc.Usage = dynamic ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_IMMUTABLE;
+	D3D11_SUBRESOURCE_DATA initialResData = { };
+	initialResData.pSysMem = initialData;
+	initialResData.SysMemPitch = initialDataLength / height;
+	HRESULT hr = Renderer::Device->CreateTexture2D(&texdesc, initialData == nullptr ? nullptr : &initialResData, &texture);
+	if (FAILED(hr))
+	{
+		throw "o no";
+	}
+
+	hr = Renderer::Device->CreateShaderResourceView(texture, nullptr, &srv);
+	if (FAILED(hr))
+	{
+		throw "o no";
+	}
+
+	return new RenderTexture(width, height, format, texture, srv, nullptr, nullptr);
 }

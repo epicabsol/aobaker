@@ -34,11 +34,11 @@ RenderTexture* TestTexture = nullptr;
 
 Scene* CurrentScene = nullptr;
 
-const D3D12_INPUT_ELEMENT_DESC WorldInputElements[] = {
-	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+const D3D11_INPUT_ELEMENT_DESC WorldInputElements[] = {
+	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0}
 };
 
 RenderVertex TestMeshVertices[] = {
@@ -84,81 +84,19 @@ RenderTexture* GetTestTexture()
 
 void Initialize()
 {
-	// World shader
-	D3D12_ROOT_PARAMETER1 worldRPs[2];
-
-	// Direct CBV
-	worldRPs[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	worldRPs[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	worldRPs[0].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE;
-	worldRPs[0].Descriptor.RegisterSpace = 0;
-	worldRPs[0].Descriptor.ShaderRegister = 0;
-
-	// CBV table
-	/*D3D12_DESCRIPTOR_RANGE1 worldConstantsRange = { };
-	worldConstantsRange.BaseShaderRegister = 0;
-	worldConstantsRange.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE;
-	worldConstantsRange.NumDescriptors = 1;
-	worldConstantsRange.OffsetInDescriptorsFromTableStart = 0;
-	worldConstantsRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	worldConstantsRange.RegisterSpace = 0;
-
-	worldRPs[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	worldRPs[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	worldRPs[0].DescriptorTable.NumDescriptorRanges = 1;
-	worldRPs[0].DescriptorTable.pDescriptorRanges = &worldConstantsRange;*/
-
-	// Direct constants
-	/*worldRPs[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	worldRPs[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	worldRPs[0].Constants.Num32BitValues = 16 * 3; // 3 float4x4 matrices
-	worldRPs[0].Constants.RegisterSpace = 0;
-	worldRPs[0].Constants.ShaderRegister = 0;*/
-
-	// Texture 0
-	/*worldRPs[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-	worldRPs[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	worldRPs[1].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_NONE;
-	worldRPs[1].Descriptor.RegisterSpace = 0;
-	worldRPs[1].Descriptor.ShaderRegister = 0;*/
-	D3D12_DESCRIPTOR_RANGE1 texrange = { };
-	texrange.BaseShaderRegister = 0;
-	texrange.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
-	texrange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	texrange.RegisterSpace = 0;
-	texrange.NumDescriptors = 1;
-	texrange.OffsetInDescriptorsFromTableStart = 0;
-
-	worldRPs[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	worldRPs[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	worldRPs[1].DescriptorTable.NumDescriptorRanges = 1;
-	worldRPs[1].DescriptorTable.pDescriptorRanges = &texrange;
-
-	D3D12_STATIC_SAMPLER_DESC sampdesc = { };
-	sampdesc.AddressU = sampdesc.AddressV = sampdesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	sampdesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-	D3D12_VERSIONED_ROOT_SIGNATURE_DESC worldDesc = { };
-	worldDesc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
-	worldDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	worldDesc.Desc_1_1.NumParameters = _ARRAYSIZE(worldRPs);
-	worldDesc.Desc_1_1.pParameters = worldRPs;
-	worldDesc.Desc_1_1.NumStaticSamplers = 1;
-	worldDesc.Desc_1_1.pStaticSamplers = &sampdesc;
-
 	// BakeObject shader
-	BakeObjectShader = RenderShader::Create(worldDesc, WorldVertexShaderFilename, BakeObjectPixelShaderFilename, WorldInputElements, _ARRAYSIZE(WorldInputElements));
+	BakeObjectShader = RenderShader::Create(WorldInputElements, ARRAYSIZE(WorldInputElements), WorldVertexShaderFilename, BakeObjectPixelShaderFilename);
 	if (BakeObjectShader == nullptr)
 	{
 		OutputDebugStringW(L"Failed to create BakeObjectShader.");
 		DebugBreak();
 	}
 
-	TestTexture = new RenderTexture(64, 64, DXGI_FORMAT_B8G8R8A8_UNORM);
-	TestTexture->UploadCheckerboard(255, 0, 255);
+	TestTexture = RenderTexture::Create(64, 64, DXGI_FORMAT_B8G8R8A8_UNORM, nullptr, 0, true);
+	TestTexture->UploadCheckerboard(Renderer::ImmediateContext, 255, 0, 255);
 
 	// Test shader and material
-	WorldShader = RenderShader::Create(worldDesc, WorldVertexShaderFilename, ColorPixelShaderFilename, WorldInputElements, _ARRAYSIZE(WorldInputElements));
+	WorldShader = RenderShader::Create(WorldInputElements, _ARRAYSIZE(WorldInputElements), WorldVertexShaderFilename, ColorPixelShaderFilename);
 	if (WorldShader == nullptr)
 	{
 		OutputDebugStringW(L"Failed to create WorldShader.");
@@ -167,9 +105,8 @@ void Initialize()
 	TestMaterial = new RenderMaterial(BakeObjectShader, &TestTexture, 1);
 
 	// Test rendermesh
-	TestMesh = new RenderMesh(TestMaterial, PrimitiveType::Triangle, TestMeshVertices, 3, TestMeshIndices, 6);
-	HRESULT hr = TestMesh->UploadBuffers();
-	if (FAILED(hr))
+	TestMesh = new RenderMesh(Renderer::Device, TestMaterial, PrimitiveType::Triangle, TestMeshVertices, 3, TestMeshIndices, 6);
+	if (TestMesh == nullptr)
 	{
 		OutputDebugStringW(L"Failed to upload test mesh buffer.");
 	}
@@ -390,7 +327,6 @@ void Dispose()
 
 	if (TestMesh != nullptr)
 	{
-		TestMesh->Dispose();
 		delete TestMesh;
 		TestMesh = nullptr;
 	}
@@ -403,14 +339,12 @@ void Dispose()
 
 	if (BakeObjectShader != nullptr)
 	{
-		BakeObjectShader->Dispose();
 		delete BakeObjectShader;
 		BakeObjectShader = nullptr;
 	}
 
 	if (WorldShader != nullptr)
 	{
-		WorldShader->Dispose();
 		delete WorldShader;
 		WorldShader = nullptr;
 	}

@@ -39,9 +39,6 @@
     <ClCompile Include="ImGui\imgui_impl_win32.cpp">
       <Filter>Source Files\ImGui</Filter>
     </ClCompile>
-    <ClCompile Include="ImGui\imgui_impl_dx12.cpp">
-      <Filter>Source Files\ImGui</Filter>
-    </ClCompile>
     <ClCompile Include="ImGui\imgui.cpp">
       <Filter>Source Files\ImGui</Filter>
     </ClCompile>
@@ -67,9 +64,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Render\ConstantBuffer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Render\GPURingAllocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Scene\SceneProperty.cpp">
@@ -99,6 +93,12 @@
     <ClCompile Include="Scene\BakeTexture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ImGui\imgui_impl_dx11.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ImGui\imgui_widgets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Window.h">
@@ -110,9 +110,6 @@
     <ClInclude Include="ImGui\imgui_impl_win32.h">
       <Filter>Header Files\ImGui</Filter>
     </ClInclude>
-    <ClInclude Include="ImGui\imgui_impl_dx12.h">
-      <Filter>Header Files\ImGui</Filter>
-    </ClInclude>
     <ClInclude Include="ImGui\imconfig.h">
       <Filter>Header Files\ImGui</Filter>
     </ClInclude>
@@ -120,15 +117,6 @@
       <Filter>Header Files\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imgui_internal.h">
-      <Filter>Header Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="ImGui\stb_rect_pack.h">
-      <Filter>Header Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="ImGui\stb_textedit.h">
-      <Filter>Header Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="ImGui\stb_truetype.h">
       <Filter>Header Files\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="AOBaker.h">
@@ -147,12 +135,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Render\ConstantBuffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Render\InstancePool.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Render\GPURingAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SceneObject.h">
@@ -180,6 +162,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Scene\BakeTexture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGui\imgui_impl_dx11.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGui\imstb_rectpack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGui\imstb_textedit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGui\imstb_truetype.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

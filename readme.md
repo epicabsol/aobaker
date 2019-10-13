@@ -4,7 +4,7 @@ AOBaker
 AOBaker is my shot at making an ambient occlusion baker that I actually like. (XNormal is a massive pain and I don't like the output, SMAK's UI is a nightmare to use and crashes consistently, 3D modeling software baking is unintuitive and frustrating)
 
 Screenshot: (The model is the Nomad from Mass Effect: Andromeda, after separating out shared materials)
-![Screenshot](/screenshot.png)
+![Screenshot](/screenshot.PNG)
 
 It can bake AO, but the UI is still heavily WIP and it cannot save the generated maps.
 

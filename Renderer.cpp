@@ -255,7 +255,7 @@ void Renderer::BeginScene()
 	ImGuizmo::BeginFrame();
 
 
-	float color[]{ 0.0f, 1.0f, 0.0f, 1.0f };
+	float color[]{ 0.3f, 0.3f, 0.3f, 1.0f };
 	ImmediateContext->ClearRenderTargetView(Backbuffer->GetRTV(), color);
 	ImmediateContext->ClearDepthStencilView(DepthStencilBuffer->GetDSV(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
@@ -266,6 +266,15 @@ void Renderer::BeginScene()
 	ImmediateContext->OMSetRenderTargets(1, &rtv, DepthStencilBuffer->GetDSV());
 	ImmediateContext->OMSetDepthStencilState(StandardDepthStencilState, 0);
 	ImmediateContext->RSSetState(StandardRasterizerState);
+
+	D3D11_VIEWPORT viewport = { };
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = BufferWidth;
+	viewport.Height = BufferHeight;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+	Renderer::ImmediateContext->RSSetViewports(1, &viewport);
 }
 
 void Renderer::EndScene()

@@ -32,6 +32,8 @@ public:
 		inline MaterialObject* GetMaterial() const { return this->Material.GetValue(); }
 		inline void SetMaterial(MaterialObject* const material) { this->Material.SetValue(material); }
 
+		inline RenderMesh* GetPreviewMesh() const { return this->PreviewMesh; }
+
 		Section(const std::wstring& name);
 		void SetMeshData(Vertex* const vertices, const int& vertexCount, unsigned int* const indices, const int& indexCount);
 		void Render(const DirectX::SimpleMath::Matrix& transform) const;
@@ -55,6 +57,8 @@ public:
 	void LoadFromFile(const std::wstring& filename, Scene* const targetScene);
 	void LoadFromCube();
 	void Clear();
+	int GetSectionCount() const;
+	Section* GetSection(int index) const;
 	~BakeObject();
 
 private:

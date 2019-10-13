@@ -10,6 +10,7 @@ public:
 	inline float GetAOMaxRange() const { return this->AOMaxRange.GetValue(); }
 	inline void SetAOMaxRange(const float& aoMaxRange) { this->AOMaxRange.SetValue(aoMaxRange); }
 	inline RenderMaterial* GetPreviewMaterial() const { return this->PreviewMaterial; }
+	inline BakeTexture* GetAOTexture() const { return this->AOTexture; }
 	MaterialObject(const std::wstring& name);
 	~MaterialObject();
 

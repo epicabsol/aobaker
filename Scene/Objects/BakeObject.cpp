@@ -180,7 +180,7 @@ void BakeObject::LoadFromFile(const std::wstring& filename, Scene* const targetS
 
 	Assimp::Importer importer;
 
-	const aiScene* scene = importer.ReadFile((std::string)StringConverter.to_bytes(filename), aiProcess_ConvertToLeftHanded | aiProcess_FixInfacingNormals | aiProcess_GenNormals | aiProcess_ImproveCacheLocality);
+	const aiScene* scene = importer.ReadFile((std::string)StringConverter.to_bytes(filename), aiProcess_ConvertToLeftHanded | aiProcess_FixInfacingNormals | aiProcess_GenNormals | aiProcess_ImproveCacheLocality | aiProcess_Triangulate);
 	
 	if (scene == nullptr)
 	{
@@ -239,6 +239,16 @@ void BakeObject::Clear()
 		delete this->Sections[i];
 	}
 	this->Sections.clear();
+}
+
+int BakeObject::GetSectionCount() const
+{
+	return this->Sections.size();
+}
+
+BakeObject::Section* BakeObject::GetSection(int index) const
+{
+	return this->Sections[index];
 }
 
 BakeObject::~BakeObject() 

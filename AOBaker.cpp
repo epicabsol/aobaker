@@ -1,5 +1,6 @@
 #include "AOBaker.h"
 #include "Renderer.h"
+#include "BakeEngine.h"
 #include "Render/RenderShader.h"
 #include "Render/RenderMesh.h"
 #include "Render/RenderTexture.h"
@@ -118,7 +119,9 @@ void Initialize()
 	//cube->LoadFromCube();
 	//CurrentScene->AddObject(cube);
 	BakeObject* nomad = new BakeObject(L"Nomad");
-	nomad->LoadFromFile(L"E:\\Projects\\Modding\\Mass Effect Modding\\Andromeda\\model dumps\\frosty testing\\mako\\mako_static_mesh_LOD0.obj", CurrentScene);
+	//nomad->LoadFromFile(L"E:\\Projects\\Modding\\Mass Effect Modding\\Andromeda\\model dumps\\frosty testing\\mako\\mako_static_mesh_LOD0.obj", CurrentScene);
+	nomad->LoadFromFile(L"C:\\Users\\codemastrben\\Documents\\LEGO Technic\\Parts\\part6536.obj", CurrentScene);
+	//"C:\\Users\\codemastrben\\Documents\\LEGO Technic\\Parts\\part32013.obj"
 	CurrentScene->AddObject(nomad);
 }
 
@@ -193,6 +196,14 @@ void Render()
 			if (ImGui::MenuItem("Save As...", "CTRL+SHIFT+S"))
 			{
 
+			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Scene"))
+		{
+			if (ImGui::MenuItem("Bake"))
+			{
+				BakeEngine::Bake(CurrentScene);
 			}
 			ImGui::EndMenu();
 		}

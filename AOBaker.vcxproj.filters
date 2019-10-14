@@ -237,6 +237,7 @@
     <FxCompile Include="Shaders\BakeObjectPixelShader.hlsl" />
     <FxCompile Include="Shaders\RasterizePixelShader.hlsl" />
     <FxCompile Include="Shaders\RasterizeVertexShader.hlsl" />
+    <FxCompile Include="Shaders\GenerateRaysComputeShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SimpleMath.inl">

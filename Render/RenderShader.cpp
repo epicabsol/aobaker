@@ -53,5 +53,8 @@ RenderShader* RenderShader::Create(const D3D11_INPUT_ELEMENT_DESC* inputElements
 	hr = Renderer::Device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vertexShader);
 	hr = Renderer::Device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &pixelShader);
 
+	vsBlob->Release();
+	psBlob->Release();
+
 	return new RenderShader(inputLayout, vertexShader, pixelShader);
 }

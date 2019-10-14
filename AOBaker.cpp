@@ -119,9 +119,9 @@ void Initialize()
 	//cube->LoadFromCube();
 	//CurrentScene->AddObject(cube);
 	BakeObject* nomad = new BakeObject(L"Nomad");
-	//nomad->LoadFromFile(L"E:\\Projects\\Modding\\Mass Effect Modding\\Andromeda\\model dumps\\frosty testing\\mako\\mako_static_mesh_LOD0.obj", CurrentScene);
-	nomad->LoadFromFile(L"C:\\Users\\codemastrben\\Documents\\LEGO Technic\\Parts\\part6536.obj", CurrentScene);
-	//"C:\\Users\\codemastrben\\Documents\\LEGO Technic\\Parts\\part32013.obj"
+	// WIP: Load a 3d model file here
+	//nomad->LoadFromFile(L"E:\\Projects\\Modding\\Mass Effect Modding\\Andromeda\\model dumps\\frosty testing\\mako\\mako_static_mesh_LOD0_split.obj", CurrentScene);
+	nomad->LoadFromFile(L"E:\\Projects\\Modding\\Mass Effect Modding\\Andromeda\\model dumps\\frosty testing\\mako\\mako_static_mesh_LOD0_split.obj", CurrentScene);
 	CurrentScene->AddObject(nomad);
 }
 

@@ -4,7 +4,7 @@
 MaterialObject::MaterialObject(const std::wstring& name) : SceneObject(name), AOMaxRange(L"AO Max Range", 1.0f)
 {
 	this->AddProperty(&this->AOMaxRange);
-	this->AOTexture = new BakeTexture(1024, 1024, 4, 1);
+	this->AOTexture = new BakeTexture(4096, 4096, 1, 1);
 	RenderTexture* PreviewTextures[] = { this->AOTexture->GetGPUPreview() };
 	this->PreviewMaterial = new RenderMaterial(GetBakeObjectShader(), PreviewTextures, _ARRAYSIZE(PreviewTextures));
 }

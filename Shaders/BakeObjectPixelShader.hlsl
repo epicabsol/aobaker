@@ -15,6 +15,7 @@ SamplerState Sampler {
 
 float4 main(PS_IN input) : SV_TARGET
 {
-	return AOTexture.Sample(Sampler, input.uv);
+	float value = pow(AOTexture.Sample(Sampler, input.uv).r, 1.0f / 2.2f);
+	return float4(value, value, value, 1.0f);
 	//return float4(input.norm, 1.0f);
 }

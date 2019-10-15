@@ -59,12 +59,12 @@ struct TexelRasterization
 	DirectX::SimpleMath::Vector2 TexCoord;
 	DirectX::SimpleMath::Vector3 Normal;
 
-	TexelRasterization() : TexelRasterization(-1, -1, DirectX::SimpleMath::Vector3(), DirectX::SimpleMath::Vector2(), DirectX::SimpleMath::Vector3(), 0)
+	TexelRasterization() : TexelRasterization(-1, -1, DirectX::SimpleMath::Vector3(), DirectX::SimpleMath::Vector2(), DirectX::SimpleMath::Vector3())
 	{
 
 	}
 
-	TexelRasterization(int texelX, int texelY, DirectX::SimpleMath::Vector3 position, DirectX::SimpleMath::Vector2 texCoord, DirectX::SimpleMath::Vector3 normal, uint32_t firstRayIndex)
+	TexelRasterization(int texelX, int texelY, DirectX::SimpleMath::Vector3 position, DirectX::SimpleMath::Vector2 texCoord, DirectX::SimpleMath::Vector3 normal)
 		: TexelX(texelX), TexelY(texelY), Position(position), TexCoord(texCoord), Normal(normal)
 	{
 
@@ -200,29 +200,6 @@ struct DepthStencilPixel
 	uint32_t Stencil : 8;
 };
 
-struct BakeLayer
-{
-	TexelRasterization* Texels;
-	int TexelCount;
-
-	BakeLayer() : Texels(nullptr), TexelCount(0)
-	{
-
-	}
-
-	BakeLayer(int texelCount) : Texels(nullptr), TexelCount(texelCount) {
-		//this->Texels = new TexelRasterization[texelCount];
-	}
-
-	~BakeLayer() {
-		/*if (this->Texels)
-		{
-			delete[] this->Texels;
-			this->Texels = nullptr;
-		}*/
-	}
-};
-
 struct ResultValue
 {
 	float Total = 0.0f;
@@ -237,27 +214,6 @@ struct ResultValue
 		if (this->Samples == 0)
 			return 0.0f;
 		return this->Total / this->Samples;
-	}
-};
-
-struct TextureBakeData
-{
-	BakeTexture* BakeTexture;
-	int Width;
-	int Height;
-	ResultValue* Values;
-	BakeLayer* Layers;
-	int LayerCount;
-
-	TextureBakeData(class BakeTexture* bakeTexture, int width, int height) : BakeTexture(bakeTexture), Width(width), Height(height), Values(nullptr), Layers(nullptr), LayerCount(0)
-	{
-		Values = new ResultValue[Width * Height];
-	}
-
-	~TextureBakeData()
-	{
-		delete[] Values;
-		delete[] Layers;
 	}
 };
 
@@ -293,12 +249,11 @@ float DistanceToRadiance(float distance, float falloffDistance) {
 
 void BakeEngine::Bake(Scene* scene)
 {
-#define COMPUTE_SHADER
 	using namespace DirectX::SimpleMath;
 	using namespace RadeonRays;
 
-	std::vector<TextureBakeData*> textureBakeDatas;
-	size_t sliceCount = 0;
+	static char buffer[100];
+
 	// HACK: Get frame to show on graphics analyzer
 	//MessageBoxA(0, "Click the capture frame button!", "Dev", 0);
 	Renderer::SwapChain->Present(1, 0);
@@ -306,9 +261,63 @@ void BakeEngine::Bake(Scene* scene)
 	// Step 0: Upload the compute shader settings!
 	GenerateRaysConstantBuffer->Update(Renderer::ImmediateContext, { sampleCount });
 
+	// Generate hemisphere
+	Vector3* hemisphere = new Vector3[rayChunkSize];
+	if (!randomizeRays) {
+		// Upload new hemisphere samples
+		OutputDebugStringW(L"Generating random samples...\n");
+		D3D11_MAPPED_SUBRESOURCE mappedHemisphere = { };
+		Renderer::ImmediateContext->Map(HemisphereBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedHemisphere);
+		GenerateHemisphereSamples((Vector3*)mappedHemisphere.pData, rayChunkSize);
+		Renderer::ImmediateContext->Unmap(HemisphereBuffer, 0);
+	}
+
+	// Compute chunk size
+	size_t slice = 0;
+	size_t chunkTexelMaxSize = rayChunkSize / sampleCount;
+	if (chunkTexelMaxSize > 65535) // D3D11's max threads in one dispatch in one dimension
+	{
+		chunkTexelMaxSize = 65535;
+	}
+
+	// Step 1: Generate geometry & acceleration structure (In sync on background thread)
+	OutputDebugStringW(L"Processing Scene...\n");
+	IntersectionApi* api = IntersectionApi::Create(0);
+	std::vector<Shape*> shapes;
+	for (int i = 0; i < scene->GetObjectCount(); i++)
+	{
+		BakeObject* object = scene->GetObject(i);
+		for (int s = 0; s < object->GetSectionCount(); s++)
+		{
+			BakeObject::Section* section = object->GetSection(s);
+			RenderMesh* mesh = section->GetPreviewMesh();
+
+			Vector3* positions = new Vector3[mesh->GetVertexCount()];
+			for (int p = 0; p < mesh->GetVertexCount(); p++)
+			{
+				positions[p] = mesh->GetVertices()[p].Position;
+			}
+			int* primitiveLengths = new int[mesh->GetIndexCount() / 3];
+			for (int p = 0; p < mesh->GetIndexCount() / 3; p++)
+			{
+				primitiveLengths[p] = 3;
+			}
+
+			Shape* shape = api->CreateMesh((const float*)positions, mesh->GetVertexCount(), sizeof(Vector3), (const int*)mesh->GetIndices(), 0, primitiveLengths, mesh->GetIndexCount() / 3);
+			matrix transform = *(matrix*)&object->BuildTransform();
+			matrix invtransform = *(matrix*)&(object->BuildTransform().Invert());
+			shape->SetTransform(transform, invtransform);
+			api->AttachShape(shape);
+			shapes.push_back(shape);
+
+			delete[] primitiveLengths;
+			delete[] positions;
+		}
+	}
+	api->Commit();
+
 	HRESULT hr = S_OK;
-	// Step 1: Rasterize into layers (Must be in sync on main thread)
-	OutputDebugStringW(L"Rasterizing Geometry...\n");
+	// Step 2: Rasterize into layers (Must be in sync on main thread)
 	ID3D11Buffer* constantBuffer = ObjectConstantBuffer->GetBuffer();
 	Renderer::ImmediateContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 	Renderer::ImmediateContext->IASetInputLayout(RasterizeShader->GetInputLayout());
@@ -319,6 +328,9 @@ void BakeEngine::Bake(Scene* scene)
 	std::vector<TexelRasterization> texels;
 	for (int i = 0; i < scene->GetMaterialCount(); i++)
 	{
+		sprintf_s(buffer, "Material %d of %d...\n", i, scene->GetMaterialCount());
+		OutputDebugStringA(buffer);
+
 		MaterialObject* material = scene->GetMaterial(i);
 
 		ID3D11Texture2D* PositionUBuffer = nullptr; // R32G32B32A32 (X, Y, Z, U)
@@ -382,8 +394,9 @@ void BakeEngine::Bake(Scene* scene)
 		UINT stride = sizeof(RenderVertex);
 		UINT offset = 0;
 
-		std::vector<BakeLayer> bakeLayers;
+		ResultValue* resultValues = new ResultValue[(size_t)texdesc.Width * texdesc.Height];
 
+		OutputDebugStringW(L"  Baking Slices...\n");
 		for (int m = 0; m < scene->GetObjectCount(); m++)
 		{
 			BakeObject* object = scene->GetObject(m);
@@ -394,6 +407,8 @@ void BakeEngine::Bake(Scene* scene)
 				BakeObject::Section* section = object->GetSection(s);
 				if (section->GetMaterial() == material)
 				{
+					sprintf_s(buffer, "    %s.%s...\n", object->GetNameGUI(), section->GetNameGUI());
+					OutputDebugStringA(buffer);
 					// Rasterize `section`!
 					Renderer::ImmediateContext->IASetIndexBuffer(section->GetPreviewMesh()->GetIndexBuffer(), DXGI_FORMAT_R32_UINT, 0);
 					vertexBuffer = section->GetPreviewMesh()->GetVertexBuffer();
@@ -401,8 +416,10 @@ void BakeEngine::Bake(Scene* scene)
 					int depthMax = 0;
 					for (int depthSlice = 0; depthSlice <= depthMax; depthSlice++)
 					{
-						size_t rayCount = 0;
+						sprintf_s(buffer, "      Slice %d of %d...\n", depthSlice, depthMax);
+						OutputDebugStringA(buffer);
 
+						OutputDebugStringW(L"        Rasterizing...\n");
 						// Clear buffers
 						Renderer::ImmediateContext->ClearRenderTargetView(PositionUBufferRTV, clearColor);
 						Renderer::ImmediateContext->ClearRenderTargetView(NormalVBufferRTV, clearColor);
@@ -449,8 +466,7 @@ void BakeEngine::Bake(Scene* scene)
 								{
 									// Record this texel
 									DirectX::SimpleMath::Vector4 normalVFloat = DirectX::PackedVector::XMLoadHalf4(&normalV.NormalV);
-									texels.push_back(TexelRasterization(x, y, positionU.Position, DirectX::SimpleMath::Vector2(positionU.U, normalVFloat.w), DirectX::SimpleMath::Vector3(normalVFloat.x, normalVFloat.y, normalVFloat.z), rayCount));
-									rayCount += sampleCount;
+									texels.push_back(TexelRasterization(x, y, positionU.Position, DirectX::SimpleMath::Vector2(positionU.U, normalVFloat.w), DirectX::SimpleMath::Vector3(normalVFloat.x, normalVFloat.y, normalVFloat.z)));
 								}
 							}
 						}
@@ -461,11 +477,92 @@ void BakeEngine::Bake(Scene* scene)
 
 						if (texels.size() > 0)
 						{
-							BakeLayer newLayer = BakeLayer(texels.size());
-							newLayer.Texels = new TexelRasterization[texels.size()]; // Deleted in Cleanup!
-							memcpy(&newLayer.Texels[0], &texels[0], texels.size() * sizeof(TexelRasterization));
-							bakeLayers.push_back(newLayer);
-							sliceCount++;
+							// Bake texels!
+							slice++;
+							size_t startTexel = 0;
+							size_t chunkTexelCount = 0;
+							while (startTexel < texels.size())
+							{
+								chunkTexelCount = texels.size() - startTexel;
+								if (chunkTexelCount > chunkTexelMaxSize)
+								{
+									chunkTexelCount = chunkTexelMaxSize;
+								}
+
+								// Step 3: Generate rays for chunk
+								sprintf_s(buffer, "        Chunk %d of %d...\n", (int)startTexel / (chunkTexelMaxSize), (int)ceil((float)texels.size() / (chunkTexelMaxSize)));
+								OutputDebugStringA(buffer);
+								OutputDebugStringW(L"          Generating Rays...\n");
+								if (randomizeRays)
+									GenerateHemisphereSamples(hemisphere, rayChunkSize);
+
+								// Upload texels
+								D3D11_MAPPED_SUBRESOURCE mappedTexels = { };
+								Renderer::ImmediateContext->Map(TexelBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedTexels);
+								memcpy(mappedTexels.pData, &texels[startTexel], chunkTexelCount * sizeof(TexelRasterization));
+								Renderer::ImmediateContext->Unmap(TexelBuffer, 0);
+
+								Renderer::ImmediateContext->CSSetShader(GenerateRaysComputeShader, nullptr, 0);
+								ID3D11ShaderResourceView* cssrvs[] = { TexelBufferSRV, HemisphereBufferSRV };
+								Renderer::ImmediateContext->CSSetShaderResources(0, ARRAYSIZE(cssrvs), cssrvs);
+								ID3D11UnorderedAccessView* csuavs[] = { RayOutputBufferUAV };
+								Renderer::ImmediateContext->CSSetUnorderedAccessViews(0, ARRAYSIZE(csuavs), csuavs, nullptr);
+								ID3D11Buffer* cscbs[] = { GenerateRaysConstantBuffer->GetBuffer() };
+								Renderer::ImmediateContext->CSSetConstantBuffers(0, ARRAYSIZE(cscbs), cscbs);
+								Renderer::ImmediateContext->Dispatch(chunkTexelCount, 1, 1);
+
+								// Populate `rays` from `RayOutputBuffer` (compute shader results)
+								Renderer::ImmediateContext->CopyResource(RayOutputStagingBuffer, RayOutputBuffer);
+								D3D11_MAPPED_SUBRESOURCE mappedRays = { };
+								Renderer::ImmediateContext->Map(RayOutputStagingBuffer, 0, D3D11_MAP_READ, 0, &mappedRays);
+								ray* rays = (ray*)mappedRays.pData;
+								Buffer* rayBuffer = api->CreateBuffer(chunkTexelCount * sampleCount * sizeof(ray), rays);
+
+								// Step 4: Launch jobs (In sync on background thread)
+								OutputDebugStringW(L"          Casting Rays...\n");
+								Buffer* intersectionBuffer = api->CreateBuffer(chunkTexelCount * sampleCount * sizeof(Intersection), nullptr);
+								Event* intersectionCompleteEvent = nullptr;
+								api->QueryIntersection(rayBuffer, chunkTexelCount * sampleCount, intersectionBuffer, nullptr, &intersectionCompleteEvent);
+								intersectionCompleteEvent->Wait();
+
+								// Step 5: Calculate results (In sync on background thread)
+								OutputDebugStringW(L"          Processing Results...\n");
+								Event* intersectionMapCompleteEvent = nullptr;
+								Intersection* intersectionData = nullptr;
+								api->MapBuffer(intersectionBuffer, MapType::kMapRead, 0, chunkTexelCount * sampleCount * sizeof(Intersection), (void**)&intersectionData, &intersectionMapCompleteEvent);
+								intersectionMapCompleteEvent->Wait();
+
+								// Read ray distances and store the resulting radiances in TextureBakeData.Values
+								for (int j = startTexel; j < startTexel + chunkTexelCount; j++)
+								{
+									TexelRasterization& texel = texels[j];
+									for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
+									{
+										ray& ray = rays[(j - startTexel) * sampleCount + sampleIndex];
+										Intersection& intersection = intersectionData[(j - startTexel) * sampleCount + sampleIndex];
+										float weight = texel.Normal.x * ray.d.x + texel.Normal.y * ray.d.y + texel.Normal.z * ray.d.z;
+										float result = 0.0f;
+										if (intersection.shapeid != kNullId && intersection.uvwt.w < falloffDistance)
+										{
+											result = DistanceToRadiance(intersection.uvwt.w, falloffDistance);
+										}
+										else
+										{
+											result = 1.0f; // DistanceToRadiance(falloffDistance, falloffDistance);
+										}
+										resultValues[texel.TexelY * texdesc.Width + texel.TexelX].Add(result, weight);
+									}
+								}
+
+								Event* intersectionUnmapCompleteEvent = nullptr;
+								api->UnmapBuffer(intersectionBuffer, intersectionData, &intersectionUnmapCompleteEvent);
+								intersectionUnmapCompleteEvent->Wait();
+								api->DeleteBuffer(rayBuffer);
+								api->DeleteBuffer(intersectionBuffer);
+								Renderer::ImmediateContext->Unmap(RayOutputStagingBuffer, 0);
+
+								startTexel += chunkTexelCount;
+							}
 						}
 					}
 				}
@@ -481,250 +578,35 @@ void BakeEngine::Bake(Scene* scene)
 		PositionUStaging->Release();
 		PositionUBufferRTV->Release();
 		PositionUBuffer->Release();
-
-		TextureBakeData* newBakeData = new TextureBakeData(material->GetAOTexture(), texdesc.Width, texdesc.Height); // Deleted in Cleanup!
-		newBakeData->LayerCount = bakeLayers.size();
-		newBakeData->Layers = new BakeLayer[newBakeData->LayerCount]; // Deleted in TextureBakeData::~TextureBakeData
-		memcpy(&newBakeData->Layers[0], &bakeLayers[0], bakeLayers.size() * sizeof(BakeLayer));
-		textureBakeDatas.push_back(newBakeData);
+		
+		// Step 6: Merge data
+		OutputDebugStringW(L"  Generating Image...\n");
+		unsigned char* textureData = material->GetAOTexture()->GetData();
+		for (int y = 0; y < texdesc.Height; y++)
+		{
+			for (int x = 0; x < texdesc.Width; x++)
+			{
+				unsigned char value = (resultValues[(size_t)y * texdesc.Width + x].GetAverage()) * 0xFF;
+				textureData[(((size_t)y * texdesc.Width + x) * material->GetAOTexture()->GetChannelCount()) * material->GetAOTexture()->GetBytesPerChannel()] = value;
+				//textureData[(((size_t)y * texdesc.Width + x) * material->GetAOTexture()->GetChannelCount() + 1) * material->GetAOTexture()->GetBytesPerChannel()] = value;
+				//textureData[(((size_t)y * texdesc.Width + x) * material->GetAOTexture()->GetChannelCount() + 2) * material->GetAOTexture()->GetBytesPerChannel()] = value;
+			}
+		}
+		delete[] resultValues;
+		material->GetAOTexture()->RefreshPreview();
 	}
 
 	// HACK: Get frame to show on graphics analyzer
 	//MessageBoxA(0, "Click the capture frame button!", "Dev", 0);
 	Renderer::SwapChain->Present(1, 0);
 
-	// Step 2: Generate geometry & acceleration structure (In sync on background thread)
-	OutputDebugStringW(L"Processing Scene...\n");
-	IntersectionApi* api = IntersectionApi::Create(0);
-	std::vector<Shape*> shapes;
-	for (int i = 0; i < scene->GetObjectCount(); i++)
-	{
-		BakeObject* object = scene->GetObject(i);
-		for (int s = 0; s < object->GetSectionCount(); s++)
-		{
-			BakeObject::Section* section = object->GetSection(s);
-			RenderMesh* mesh = section->GetPreviewMesh();
-
-			Vector3* positions = new Vector3[mesh->GetVertexCount()];
-			for (int p = 0; p < mesh->GetVertexCount(); p++)
-			{
-				positions[p] = mesh->GetVertices()[p].Position;
-			}
-			int* primitiveLengths = new int[mesh->GetIndexCount() / 3];
-			for (int p = 0; p < mesh->GetIndexCount() / 3; p++)
-			{
-				primitiveLengths[p] = 3;
-			}
-
-			Shape* shape = api->CreateMesh((const float*)positions, mesh->GetVertexCount(), sizeof(Vector3), (const int*)mesh->GetIndices(), 0, primitiveLengths, mesh->GetIndexCount() / 3);
-			matrix transform = *(matrix*)&object->BuildTransform();
-			matrix invtransform = *(matrix*)&(object->BuildTransform().Invert());
-			shape->SetTransform(transform, invtransform);
-			api->AttachShape(shape);
-			shapes.push_back(shape);
-
-			delete[] primitiveLengths;
-			delete[] positions;
-		}
-	}
-	api->Commit();
-
-	OutputDebugStringW(L"Generating samples...\n");
-	Vector3* hemisphere = new Vector3[rayChunkSize];
-	if (!randomizeRays) {
-#ifndef COMPUTE_SHADER
-		GenerateHemisphereSamples(hemisphere, rayChunkSize);
-#else
-		// Upload new hemisphere samples
-		D3D11_MAPPED_SUBRESOURCE mappedHemisphere = { };
-		Renderer::ImmediateContext->Map(HemisphereBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedHemisphere);
-		GenerateHemisphereSamples((Vector3*)mappedHemisphere.pData, rayChunkSize);
-		Renderer::ImmediateContext->Unmap(HemisphereBuffer, 0);
-#endif
-	}
-	size_t slice = 0;
-	size_t chunkTexelMaxSize = rayChunkSize / sampleCount;
-	if (chunkTexelMaxSize > 65535) // D3D11's max threads in one dispatch in one dimension
-	{
-		chunkTexelMaxSize = 65535;
-	}
-	for (TextureBakeData* texData : textureBakeDatas)
-	{
-		for (int i = 0; i < texData->LayerCount; i++)
-		{
-			slice++;
-			static char buffer[100];
-			sprintf_s(buffer, "Baking slice %d of %d...\n", (int)slice, (int)sliceCount);
-			OutputDebugStringA(buffer);
-
-			size_t startTexel = 0;
-			size_t chunkTexelCount = 0;
-			while (startTexel < texData->Layers[i].TexelCount)
-			{
-				chunkTexelCount = texData->Layers[i].TexelCount - startTexel;
-				if (chunkTexelCount > chunkTexelMaxSize)
-				{
-					chunkTexelCount = chunkTexelMaxSize;
-				}
-
-
-
-				// Step 3: Generate rays
-				sprintf_s(buffer, "  Generating Rays for chunk %d of %d...\n", (int)startTexel / (chunkTexelMaxSize), (int)ceil((float)texData->Layers[i].TexelCount / (chunkTexelMaxSize)));
-				OutputDebugStringA(buffer);
-				if (randomizeRays)
-					GenerateHemisphereSamples(hemisphere, rayChunkSize);
-
-#ifndef COMPUTE_SHADER
-				ray* rays = (ray*)operator new(chunkTexelCount * sampleCount * sizeof(ray));
-				for (int texel = startTexel; texel < startTexel + chunkTexelCount; texel++)
-				{
-					/*if (randomizeRays)
-						GenerateHemisphereSamples(hemisphere, rayChunkSize);*/
-
-					Vector3& hemiY = texData->Layers[i].Texels[texel].Normal;
-					Vector3 hemiX = Vector3::UnitX;
-					Vector3 hemiZ = Vector3::UnitZ;
-					if (0.9999 < hemiY.Dot(Vector3::UnitY) || hemiY.Dot(Vector3::UnitY) < -0.9999)
-					{
-						hemiY = hemiY;
-					}
-					else
-					{
-						hemiX = hemiY.Cross(Vector3::UnitY);
-						hemiX.Normalize();
-						hemiZ = hemiX.Cross(hemiY);
-						hemiZ.Normalize();
-					}
-
-					size_t rayIndex = (texel - startTexel) * sampleCount;
-					for (int sample = 0; sample < sampleCount; sample++)
-					{
-						Vector3 pos = texData->Layers[i].Texels[texel].Position + hemiY * 0.001f;
-						Vector3& hemi = hemisphere[rayIndex];
-						Vector3 dir = Vector3(hemi.x * hemiX.x + hemi.y * hemiY.x + hemi.z * hemiZ.x, hemi.x * hemiX.y + hemi.y * hemiY.y + hemi.z * hemiZ.y, hemi.x * hemiX.z + hemi.y * hemiY.z + hemi.z * hemiZ.z);
-					
-						rays[rayIndex].o = float4(pos.x, pos.y, pos.z, 1000000.0f);
-						rays[rayIndex].d = float3(dir.x, dir.y, dir.z);
-						rayIndex++;
-					}
-				}
-#else
-				// Upload texels
-				D3D11_MAPPED_SUBRESOURCE mappedTexels = { };
-				Renderer::ImmediateContext->Map(TexelBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedTexels);
-				memcpy(mappedTexels.pData, &texData->Layers[i].Texels[startTexel], chunkTexelCount * sizeof(TexelRasterization));
-				Renderer::ImmediateContext->Unmap(TexelBuffer, 0);
-
-				Renderer::ImmediateContext->CSSetShader(GenerateRaysComputeShader, nullptr, 0);
-				ID3D11ShaderResourceView* cssrvs[] = { TexelBufferSRV, HemisphereBufferSRV };
-				Renderer::ImmediateContext->CSSetShaderResources(0, ARRAYSIZE(cssrvs), cssrvs);
-				ID3D11UnorderedAccessView* csuavs[] = { RayOutputBufferUAV };
-				Renderer::ImmediateContext->CSSetUnorderedAccessViews(0, ARRAYSIZE(csuavs), csuavs, nullptr);
-				ID3D11Buffer* cscbs[] = { GenerateRaysConstantBuffer->GetBuffer() };
-				Renderer::ImmediateContext->CSSetConstantBuffers(0, ARRAYSIZE(cscbs), cscbs);
-				Renderer::ImmediateContext->Dispatch(chunkTexelCount, 1, 1);
-
-				// Populate `rays` from `RayOutputBuffer` (compute shader results)
-				Renderer::ImmediateContext->CopyResource(RayOutputStagingBuffer, RayOutputBuffer);
-				D3D11_MAPPED_SUBRESOURCE mappedRays = { };
-				Renderer::ImmediateContext->Map(RayOutputStagingBuffer, 0, D3D11_MAP_READ, 0, &mappedRays);
-				ray* rays = (ray*)mappedRays.pData;
-#endif
-				Buffer* rayBuffer = api->CreateBuffer(chunkTexelCount * sampleCount * sizeof(ray), rays);
-
-				// Step 4: Launch jobs (In sync on background thread)
-				OutputDebugStringW(L"  Casting Rays...\n");
-				Buffer* intersectionBuffer = api->CreateBuffer(chunkTexelCount * sampleCount * sizeof(Intersection), nullptr);
-				Event* intersectionCompleteEvent = nullptr;
-				api->QueryIntersection(rayBuffer, chunkTexelCount * sampleCount, intersectionBuffer, nullptr, &intersectionCompleteEvent);
-				intersectionCompleteEvent->Wait();
-
-				// Step 5: Calculate results (In sync on background thread)
-				OutputDebugStringW(L"  Processing Results...\n");
-				Event* intersectionMapCompleteEvent = nullptr;
-				Intersection* intersectionData = nullptr;
-				api->MapBuffer(intersectionBuffer, MapType::kMapRead, 0, chunkTexelCount * sampleCount * sizeof(Intersection), (void**)&intersectionData, &intersectionMapCompleteEvent);
-				intersectionMapCompleteEvent->Wait();
-
-				// Read ray distances and store the resulting radiances in TextureBakeData.Values
-				for (int j = startTexel; j < startTexel + chunkTexelCount; j++)
-				{
-					TexelRasterization& texel = texData->Layers[i].Texels[j];
-					for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
-					{
-						ray& ray = rays[(j - startTexel) * sampleCount + sampleIndex];
-						Intersection& intersection = intersectionData[(j - startTexel) * sampleCount + sampleIndex];
-						float weight = texel.Normal.x * ray.d.x + texel.Normal.y * ray.d.y + texel.Normal.z * ray.d.z;
-						float result = 0.0f;
-						if (intersection.shapeid != kNullId && intersection.uvwt.w < falloffDistance)
-						{
-							result = DistanceToRadiance(intersection.uvwt.w, falloffDistance);
-							//result = (ray.d.y < -0.9999 || ray.d.y > 0.9999) ? 0.0f : 1.0f;
-						}
-						else
-						{
-							result = 1.0f; // DistanceToRadiance(falloffDistance, falloffDistance);
-							//result = (ray.d.y < -0.9999 || ray.d.y > 0.9999) ? 0.0f : 1.0f;
-						}
-						texData->Values[texel.TexelY * texData->Width + texel.TexelX].Add(result, weight);
-					}
-				}
-
-				Event* intersectionUnmapCompleteEvent = nullptr;
-				api->UnmapBuffer(intersectionBuffer, intersectionData, &intersectionUnmapCompleteEvent);
-				intersectionUnmapCompleteEvent->Wait();
-				api->DeleteBuffer(rayBuffer);
-				api->DeleteBuffer(intersectionBuffer);
-#ifndef COMPUTE_SHADER
-				operator delete(rays);
-#else
-				Renderer::ImmediateContext->Unmap(RayOutputStagingBuffer, 0);
-#endif
-
-
-				startTexel += chunkTexelCount;
-			}
-
-		}
-	}
+	// Step 7: Cleanup!
 	delete[] hemisphere;
-
-	// HACK: Get frame to show on graphics analyzer
-	//MessageBoxA(0, "Click the capture frame button!", "Dev", 0);
-	Renderer::SwapChain->Present(1, 0);
-
 	for (Shape* shape : shapes)
 	{
 		api->DeleteShape(shape);
 	}
 	IntersectionApi::Delete(api);
 
-	// Step 6: Merge data
-	OutputDebugStringW(L"Generating Image...\n");
-	for (TextureBakeData* bakeData : textureBakeDatas)
-	{
-		unsigned char* textureData = bakeData->BakeTexture->GetData();
-		for (int y = 0; y < bakeData->Height; y++)
-		{
-			for (int x = 0; x < bakeData->Width; x++)
-			{
-				unsigned char value = (bakeData->Values[(size_t)y * bakeData->Width + x].GetAverage()) * 0xFF;
-				textureData[(((size_t)y * bakeData->Width + x) * bakeData->BakeTexture->GetChannelCount()) * bakeData->BakeTexture->GetBytesPerChannel()] = value;
-				textureData[(((size_t)y * bakeData->Width + x) * bakeData->BakeTexture->GetChannelCount() + 1) * bakeData->BakeTexture->GetBytesPerChannel()] = value;
-				textureData[(((size_t)y * bakeData->Width + x) * bakeData->BakeTexture->GetChannelCount() + 2) * bakeData->BakeTexture->GetBytesPerChannel()] = value;
-			}
-		}
-		bakeData->BakeTexture->RefreshPreview();
-	}
-
-	// Step 7: Cleanup!
-	for (const TextureBakeData* const tex : textureBakeDatas)
-	{
-		for (int i = 0; i < tex->LayerCount; i++)
-		{
-			delete[] tex->Layers[i].Texels;
-		}
-		delete tex;
-	}
+	OutputDebugStringW(L"Bake Complete.\n");
 }

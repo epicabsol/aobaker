@@ -175,16 +175,30 @@ void Scene::DrawPropertiesGUI()
 {
 	for (size_t i = 0; i < this->BakeObjects.size(); i++)
 	{
-		if (this->BakeObjects[i]->IsSelected())
+		BakeObject* object = this->BakeObjects[i];
+		if (object->IsSelected())
 		{
-			this->BakeObjects[i]->OnGUI();
+			object->OnGUI();
+			if (ImGui::Button("Delete"))
+			{
+				this->BakeObjects.erase(this->BakeObjects.begin() + i);
+				delete object;
+				i--;
+			}
 		}
 	}
 	for (size_t i = 0; i < this->Materials.size(); i++)
 	{
-		if (this->Materials[i]->IsSelected())
+		MaterialObject* material = this->Materials[i];
+		if (material->IsSelected())
 		{
-			this->Materials[i]->OnGUI();
+			material->OnGUI();
+			if (ImGui::Button("Delete"))
+			{
+				this->Materials.erase(this->Materials.begin() + i);
+				delete material;
+				i--;
+			}
 		}
 	}
 }

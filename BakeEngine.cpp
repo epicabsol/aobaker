@@ -10,7 +10,7 @@
 
 #include "RadeonRays/radeon_rays.h"
 
-const int sampleCount = 1000;
+const int sampleCount = 200;
 const float falloffDistance = 1.25f;
 const bool randomizeRays = false;
 const int rayChunkSize = 0xFFFFFF;
@@ -244,7 +244,7 @@ void GenerateHemisphereSamples(DirectX::SimpleMath::Vector3 *buffer, int count) 
 float DistanceToRadiance(float distance, float falloffDistance) {
 	if (distance > falloffDistance)
 		distance = falloffDistance;
-	return powf(distance / falloffDistance, 2.0f);
+	return powf(distance / falloffDistance, 1.0f);
 }
 
 void BakeEngine::Bake(Scene* scene)
@@ -304,10 +304,10 @@ void BakeEngine::Bake(Scene* scene)
 			}
 
 			Shape* shape = api->CreateMesh((const float*)positions, mesh->GetVertexCount(), sizeof(Vector3), (const int*)mesh->GetIndices(), 0, primitiveLengths, mesh->GetIndexCount() / 3);
-			matrix transform = *(matrix*)&object->BuildTransform();
-			matrix invtransform = *(matrix*)&(object->BuildTransform().Invert());
-			shape->SetTransform(transform, invtransform);
+			matrix transform = (*(matrix*)&object->BuildTransform()).transpose();
+			matrix invtransform = (*(matrix*)&(object->BuildTransform().Invert())).transpose();
 			api->AttachShape(shape);
+			shape->SetTransform(transform, invtransform);
 			shapes.push_back(shape);
 
 			delete[] primitiveLengths;
@@ -318,8 +318,6 @@ void BakeEngine::Bake(Scene* scene)
 
 	HRESULT hr = S_OK;
 	// Step 2: Rasterize into layers (Must be in sync on main thread)
-	ID3D11Buffer* constantBuffer = ObjectConstantBuffer->GetBuffer();
-	Renderer::ImmediateContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 	Renderer::ImmediateContext->IASetInputLayout(RasterizeShader->GetInputLayout());
 	Renderer::ImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Renderer::ImmediateContext->VSSetShader(RasterizeShader->GetVertexShader(), nullptr, 0);
@@ -401,6 +399,12 @@ void BakeEngine::Bake(Scene* scene)
 		{
 			BakeObject* object = scene->GetObject(m);
 			DirectX::SimpleMath::Matrix transform = object->BuildTransform();
+
+			ID3D11Buffer* constantBuffer = nullptr;
+			Renderer::ImmediateContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+			ObjectConstantBuffer->Update(Renderer::ImmediateContext, ObjectConstants { transform });
+			constantBuffer = ObjectConstantBuffer->GetBuffer();
+			Renderer::ImmediateContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 
 			for (int s = 0; s < object->GetSectionCount(); s++)
 			{

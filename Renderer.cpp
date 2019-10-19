@@ -411,23 +411,6 @@ void Renderer::Render(RenderMesh* const mesh, const DirectX::SimpleMath::Matrix&
 
 	WorldConstantBuffer->Update(ImmediateContext, worldConstants);
 
-	/*CommandList->SetGraphicsRootSignature(mesh->GetMaterial()->GetShader()->GetSignature());
-	WorldConstantBuffer->Apply(CommandList, worldConstants, 0, CurrentFrameID);
-	CommandList->IASetPrimitiveTopology(mesh->GetPrimitiveType() == PrimitiveType::Triangle ? D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST : D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-	CommandList->IASetIndexBuffer(mesh->GetIndexBufferView());
-	CommandList->IASetVertexBuffers(0, 1, mesh->GetVertexBufferView());
-	CommandList->SetPipelineState(mesh->GetMaterial()->GetShader()->GetPipelineState());
-
-	for (int i = 0; i < mesh->GetMaterial()->GetTextureCount(); i++)
-	{
-		//CommandList->SetGraphicsRootShaderResourceView(i + 1, mesh->GetMaterial()->GetTextures()[i]->GetGPUVirtualAddress());
-		D3D12_GPU_DESCRIPTOR_HANDLE handle;
-		handle.ptr = Renderer::SRVHeap->GetGPUDescriptorHandleForHeapStart().ptr + mesh->GetMaterial()->GetTextures()[i]->GetIndex() * RTVIncrementSize;
-		CommandList->SetGraphicsRootDescriptorTable(1, handle);
-
-	}
-
-	CommandList->DrawIndexedInstanced(mesh->GetIndexCount(), 1, 0, 0, 0);*/
 
 	ImmediateContext->IASetIndexBuffer(mesh->GetIndexBuffer(), DXGI_FORMAT_R32_UINT, 0);
 	ID3D11Buffer* vertexBuffer = mesh->GetVertexBuffer();

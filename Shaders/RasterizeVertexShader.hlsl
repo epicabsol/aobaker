@@ -27,7 +27,7 @@ VS_OUT main(VS_IN input)
 {
 	VS_OUT result;
 	result.pos = float4(input.uv.x * 2.0f - 1.0f, 1.0f - input.uv.y * 2.0f, 0.0f, 1.0f);
-	result.norm = mul(float4(input.norm, 0.0f), Constants.model).xyz;
+	result.norm = normalize(mul(float4(input.norm, 0.0f), Constants.model).xyz);
 	result.uv = input.uv;
 	result.worldpos = mul(float4(input.pos, 1.0f), Constants.model).xyz;
 

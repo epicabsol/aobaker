@@ -83,6 +83,35 @@ RenderTexture* GetTestTexture()
 	return TestTexture;
 }
 
+void ShowImportModel()
+{
+	OPENFILENAME ofn = { };
+	wchar_t path[MAX_PATH];
+	wchar_t currentDirectory[MAX_PATH];
+	GetCurrentDirectory(MAX_PATH, currentDirectory);
+	
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = Window::GetHandle();
+	ofn.lpstrFile = path;
+	path[0] = '\0';
+	ofn.nMaxFile = MAX_PATH;
+	ofn.lpstrFilter = L"Wavefront OBJ Files (*.obj)\0*.obj\0";
+	ofn.nFilterIndex = 0;
+	ofn.lpstrFileTitle = 0;
+	ofn.nMaxFileTitle = 0;
+	ofn.lpstrInitialDir = 0;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+	if (GetOpenFileName(&ofn) == TRUE)
+	{
+		BakeObject* newObject = new BakeObject(L"Imported Model");
+		newObject->LoadFromFile(ofn.lpstrFile, CurrentScene);
+		CurrentScene->AddObject(newObject);
+	}
+
+	SetCurrentDirectory(currentDirectory);
+}
+
 void Initialize()
 {
 	// BakeObject shader
@@ -118,11 +147,13 @@ void Initialize()
 	//BakeObject* cube = new BakeObject(L"Cube");
 	//cube->LoadFromCube();
 	//CurrentScene->AddObject(cube);
-	BakeObject* nomad = new BakeObject(L"Nomad");
+
+
+	//BakeObject* nomad = new BakeObject(L"Nomad");
 	// WIP: Load a 3d model file here
 	//nomad->LoadFromFile(L"E:\\Projects\\Modding\\Mass Effect Modding\\Andromeda\\model dumps\\frosty testing\\mako\\mako_static_mesh_LOD0_split.obj", CurrentScene);
-	nomad->LoadFromFile(L"C:\\Users\\codemastrben\\Documents\\LEGO Technic\\Parts\\part6536.obj", CurrentScene);
-	CurrentScene->AddObject(nomad);
+	//nomad->LoadFromFile(L"C:\\Users\\codemastrben\\Documents\\LEGO Technic\\Parts\\part6536.obj", CurrentScene);
+	//CurrentScene->AddObject(nomad);
 }
 
 void Update(const float& dT)
@@ -204,6 +235,10 @@ void Render()
 			if (ImGui::MenuItem("Bake"))
 			{
 				BakeEngine::Bake(CurrentScene);
+			}
+			if (ImGui::MenuItem("Import Object..."))
+			{
+				ShowImportModel();
 			}
 			ImGui::EndMenu();
 		}

@@ -6,7 +6,7 @@ AOBaker is my shot at making an ambient occlusion baker that I actually like. (X
 Screenshot: (The model is the Nomad from Mass Effect: Andromeda, after separating out shared materials)
 ![Screenshot](/screenshot.PNG)
 
-It can bake AO, but the UI is still heavily WIP and it cannot save the generated maps.
+AOBaker can bake AO and save the resulting textures, but the UI is still heavily WIP and the bakes currently aren't bled around the borders.
 
 Task List:
 ----------
@@ -16,6 +16,6 @@ Task List:
  - [X] Property editing and transform gizmos from the ImGuizmo project
  - [X] Mesh import from the assimp project
  - [ ] Project saving & loading
- - [ ] Texture rendering / loading / saving
+ - [X] Texture rendering / loading / saving
  - [ ] Bake UI
  - [X] Actual AO baking using the Radeon Rays project

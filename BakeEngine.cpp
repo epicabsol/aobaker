@@ -10,9 +10,10 @@
 
 #include "RadeonRays/radeon_rays.h"
 
-const int sampleCount = 200;
+const int sampleCount = 10000;
 const float falloffDistance = 1.25f;
 const bool randomizeRays = false;
+const bool useAnyHit = true; // UseAnyHit means no max AO distance - any hit, no matter how far away, counts as occluded.
 const int rayChunkSize = 0xFFFFFF;
 
 ID3D11DepthStencilState* LayerDSS = nullptr;
@@ -546,9 +547,16 @@ void BakeEngine::Bake(Scene* scene)
 										Intersection& intersection = intersectionData[(j - startTexel) * sampleCount + sampleIndex];
 										float weight = texel.Normal.x * ray.d.x + texel.Normal.y * ray.d.y + texel.Normal.z * ray.d.z;
 										float result = 0.0f;
-										if (intersection.shapeid != kNullId && intersection.uvwt.w < falloffDistance)
+										if (intersection.shapeid != kNullId && (intersection.uvwt.w < falloffDistance || useAnyHit))
 										{
-											result = DistanceToRadiance(intersection.uvwt.w, falloffDistance);
+											if (useAnyHit)
+											{
+												result = 0.0f;
+											}
+											else
+											{
+												result = DistanceToRadiance(intersection.uvwt.w, falloffDistance);
+											}
 										}
 										else
 										{

@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include "../Renderer.h"
+#include "../stb_image/stb_image_write.h"
 
 BakeTexture::BakeTexture(const int& width, const int& height, const int& channelCount, const int& bytesPerChannel)
 {
@@ -99,6 +100,21 @@ void BakeTexture::UpdateData(unsigned char* data, size_t length)
 
 	this->RefreshPreview();
 }
+
+void BakeTexture::SavePNG(const wchar_t* filename) const
+{
+	if (this->BytesPerChannel != 1)
+	{
+		MessageBox(0, L"Cannot save a bake texture with >8 bpp.", L"Error", 0);
+		return;
+	}
+
+	char name[MAX_PATH];
+	wcstombs(name, filename, MAX_PATH);
+
+	stbi_write_png(name, this->Width, this->Height, this->ChannelCount, this->Data, this->Width * this->ChannelCount * this->BytesPerChannel);
+}
+
 
 void BakeTexture::RefreshPreview() const
 {

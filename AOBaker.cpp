@@ -154,6 +154,8 @@ void Initialize()
 	//nomad->LoadFromFile(L"E:\\Projects\\Modding\\Mass Effect Modding\\Andromeda\\model dumps\\frosty testing\\mako\\mako_static_mesh_LOD0_split.obj", CurrentScene);
 	//nomad->LoadFromFile(L"C:\\Users\\codemastrben\\Documents\\LEGO Technic\\Parts\\part6536.obj", CurrentScene);
 	//CurrentScene->AddObject(nomad);
+
+	//ImGui::GetStateStorage()->SetInt(ImGui::GetID("Models"), 1);
 }
 
 void Update(const float& dT)
@@ -204,12 +206,16 @@ void Render()
 
 	//Renderer::Render(TestMesh, DirectX::SimpleMath::Matrix::CreateRotationY(3.1415926535f / 4.0f * elapsed));
 	//Renderer::Render(TestMesh, DirectX::SimpleMath::Matrix::Identity);
-	
+
 	CurrentScene->Render();
 
+	ImGui::ShowDemoWindow();
+
+	int menuBarHeight = 0;
 	// Menu bar
 	if (ImGui::BeginMainMenuBar())
 	{
+		menuBarHeight = ImGui::GetWindowSize().y;
 		if (ImGui::BeginMenu("File"))
 		{
 			if (ImGui::MenuItem("New", "CTRL+N"))
@@ -247,7 +253,7 @@ void Render()
 			// TODO: First / Third person, Focus selection, reset, movement speed
 			if (ImGui::MenuItem("Style Editor"))
 			{
-				ImGui::ShowStyleEditor();
+				//ImGui::ShowStyleEditor();
 			}
 			ImGui::EndMenu();
 		}
@@ -270,15 +276,59 @@ void Render()
 		ImGui::EndMainMenuBar();
 	}
 
-	// Models window
-	//ImGui::SetNextWindowSizeConstraints(ImVec2(100.0f, Window::GetClientHeight()), ImVec2(1000.0f, Window::GetClientHeight()));
-	if (ImGui::Begin("Models"))
+	// Left Dockpane
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(300, Renderer::GetBufferHeight() - menuBarHeight));
+	ImGui::SetNextWindowPos(ImVec2(0, menuBarHeight));
+	if (ImGui::Begin("Left Dockpane", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDecoration))
 	{
-		CurrentScene->DrawObjectList();
+		ImGui::PopStyleVar(3);
+
+		// Models window: v1
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+		//ImGui::Unindent(ImGui::GetTreeNodeToLabelSpacing());
+		ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+		if (ImGui::CollapsingHeader("Models", ImGuiTreeNodeFlags_SpanFullWidth))
+		{
+			//ImGui::Indent(ImGui::GetTreeNodeToLabelSpacing());
+			//ImGui::PopStyleVar(2);
+			//ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1);
+			int objectListHeight = ImGui::CalcTextSize(" ").y;
+			if (CurrentScene->GetObjectCount() > 0)
+			{
+				objectListHeight *= CurrentScene->GetObjectCount();
+			}
+			//objectListHeight += ImGui::GetFrameHeightWithSpacing();
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+			if (ImGui::BeginChild("Models List", ImVec2(0, objectListHeight), true))
+			{
+				CurrentScene->DrawObjectList();
+			}
+			ImGui::EndChild();
+			ImGui::PopStyleVar();
+		}
+		else
+		{
+			//ImGui::Indent(ImGui::GetTreeNodeToLabelSpacing());
+			//ImGui::PopStyleVar(2);
+		}
+		ImGui::PopStyleVar(2);
+
+		// Models window: v2
+		//ImGui::GetWindowDrawList()->AddRectFilled(ImGui::GetCursorPos(), ImVec2(ImGui::GetCursorPosX() + 10, 10), )
+	}
+	else
+	{
+		ImGui::PopStyleVar(3);
 	}
 	ImGui::End();
 
+
 	// Materials window
+	ImGui::SetNextWindowSize(ImVec2(300, 0));
 	if (ImGui::Begin("Materials"))
 	{
 		CurrentScene->DrawMaterialList();
@@ -286,6 +336,7 @@ void Render()
 	ImGui::End();
 
 	// Properties window
+	ImGui::SetNextWindowSize(ImVec2(300, 0));
 	if (ImGui::Begin("Properties"))
 	{
 		CurrentScene->DrawPropertiesGUI();

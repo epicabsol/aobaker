@@ -242,6 +242,16 @@ HRESULT Renderer::Resize(const int& bufferWidth, const int& bufferHeight)
 	}
 }
 
+int Renderer::GetBufferWidth()
+{
+	return BufferWidth;
+}
+
+int Renderer::GetBufferHeight()
+{
+	return BufferHeight;
+}
+
 const float ClearColor[] = { 100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f };
 
 void Renderer::BeginScene()

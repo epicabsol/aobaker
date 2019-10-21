@@ -19,6 +19,9 @@ namespace Renderer
 
 	HRESULT Resize(const int& bufferWidth, const int& bufferHeight);
 
+	int GetBufferWidth();
+	int GetBufferHeight();
+
 	void BeginScene();
 
 	void EndScene();

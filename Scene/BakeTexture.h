@@ -14,6 +14,7 @@ public:
 	size_t GetDataLength() const;
 	RenderTexture* GetGPUPreview() const;
 	void UpdateData(unsigned char* data, size_t length);
+	void SavePNG(const wchar_t* filename) const;
 	void RefreshPreview() const;
 	void FillRandom();
 

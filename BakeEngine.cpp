@@ -10,7 +10,7 @@
 
 #include "RadeonRays/radeon_rays.h"
 
-const int sampleCount = 10000;
+const int sampleCount = 2000;
 const float falloffDistance = 1.25f;
 const bool randomizeRays = false;
 const bool useAnyHit = true; // UseAnyHit means no max AO distance - any hit, no matter how far away, counts as occluded.
@@ -22,7 +22,9 @@ ID3D11RasterizerState* NoCullRS = nullptr;
 struct GenerateRaysOptions
 {
 	int SampleCount;
-	DirectX::SimpleMath::Vector3 Unused;
+	int TextureWidth;
+	int UseAnyHit;
+	float FalloffDistance;
 };
 
 const D3D11_INPUT_ELEMENT_DESC RasterizeInputElements[] = {
@@ -34,8 +36,10 @@ const D3D11_INPUT_ELEMENT_DESC RasterizeInputElements[] = {
 const std::wstring RasterizeVertexShaderFilename = L"data/RasterizeVertexShader.cso";
 const std::wstring RasterizePixelShaderFilename = L"data/RasterizePixelShader.cso";
 const std::wstring GenerateRaysComputeShaderFilename = L"data/GenerateRaysComputeShader.cso";
+const std::wstring ProcessIntersectionsComputeShaderFilename = L"data/ProcessIntersectionsComputeShader.cso";
 RenderShader* RasterizeShader = nullptr;
 ID3D11ComputeShader* GenerateRaysComputeShader = nullptr;
+ID3D11ComputeShader* ProcessIntersectionsComputeShader = nullptr;
 ConstantBuffer<GenerateRaysOptions>* GenerateRaysConstantBuffer = nullptr;
 
 ID3D11Buffer* TexelBuffer = nullptr;
@@ -43,8 +47,11 @@ ID3D11ShaderResourceView* TexelBufferSRV = nullptr;
 ID3D11Buffer* HemisphereBuffer = nullptr;
 ID3D11ShaderResourceView* HemisphereBufferSRV = nullptr;
 ID3D11Buffer* RayOutputBuffer = nullptr;
+ID3D11ShaderResourceView* RayOutputBufferSRV = nullptr;
 ID3D11UnorderedAccessView* RayOutputBufferUAV = nullptr;
 ID3D11Buffer* RayOutputStagingBuffer = nullptr;
+ID3D11Buffer* IntersectionBuffer = nullptr;
+ID3D11ShaderResourceView* IntersectionBufferSRV = nullptr;
 
 struct ObjectConstants
 {
@@ -99,7 +106,11 @@ void BakeEngine::Init()
 	hr = Renderer::Device->CreateComputeShader(generateRaysBytecode->GetBufferPointer(), generateRaysBytecode->GetBufferSize(), nullptr, &GenerateRaysComputeShader);
 	generateRaysBytecode->Release();
 
-	GenerateRaysConstantBuffer = ConstantBuffer<GenerateRaysOptions>::Create(Renderer::Device, { 0 }, true);
+	ID3DBlob* processIntersectionsBytecode = Renderer::ReadBlobFromFile(ProcessIntersectionsComputeShaderFilename);
+	hr = Renderer::Device->CreateComputeShader(processIntersectionsBytecode->GetBufferPointer(), processIntersectionsBytecode->GetBufferSize(), nullptr, &ProcessIntersectionsComputeShader);
+	processIntersectionsBytecode->Release();
+
+	GenerateRaysConstantBuffer = ConstantBuffer<GenerateRaysOptions>::Create(Renderer::Device, { 0, 0, 0, 0.0f }, true);
 
 	D3D11_BUFFER_DESC bufdesc = { };
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvdesc = { };
@@ -122,12 +133,14 @@ void BakeEngine::Init()
 	hr = Renderer::Device->CreateBuffer(&bufdesc, nullptr, &HemisphereBuffer);
 	hr = Renderer::Device->CreateShaderResourceView(HemisphereBuffer, &srvdesc, &HemisphereBufferSRV);
 	// Ray Output buffer
-	bufdesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	bufdesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
 	bufdesc.ByteWidth = rayChunkSize * sizeof(RadeonRays::ray);
 	bufdesc.CPUAccessFlags = 0;
 	bufdesc.StructureByteStride = sizeof(RadeonRays::ray);
 	bufdesc.Usage = D3D11_USAGE_DEFAULT;
 	hr = Renderer::Device->CreateBuffer(&bufdesc, nullptr, &RayOutputBuffer);
+	srvdesc = CD3D11_SHADER_RESOURCE_VIEW_DESC(RayOutputBuffer, DXGI_FORMAT_UNKNOWN, 0, rayChunkSize);
+	hr = Renderer::Device->CreateShaderResourceView(RayOutputBuffer, &srvdesc, &RayOutputBufferSRV);
 	D3D11_UNORDERED_ACCESS_VIEW_DESC uavdesc = { };
 	uavdesc.Format = DXGI_FORMAT_UNKNOWN;
 	uavdesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
@@ -140,15 +153,33 @@ void BakeEngine::Init()
 	bufdesc.MiscFlags = 0;
 	bufdesc.Usage = D3D11_USAGE_STAGING;
 	hr = Renderer::Device->CreateBuffer(&bufdesc, nullptr, &RayOutputStagingBuffer);
+	// Intersection buffer
+	bufdesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	bufdesc.ByteWidth = rayChunkSize * sizeof(RadeonRays::Intersection);
+	bufdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	bufdesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	bufdesc.StructureByteStride = sizeof(RadeonRays::Intersection);
+	bufdesc.Usage = D3D11_USAGE_DYNAMIC;
+	hr = Renderer::Device->CreateBuffer(&bufdesc, nullptr, &IntersectionBuffer);
+	hr = Renderer::Device->CreateShaderResourceView(IntersectionBuffer, &srvdesc, &IntersectionBufferSRV);
 }
 
 void BakeEngine::Dispose()
 {
+	IntersectionBufferSRV->Release();
+	IntersectionBufferSRV = nullptr;
+
+	IntersectionBuffer->Release();
+	IntersectionBuffer = nullptr;
+
 	RayOutputStagingBuffer->Release();
 	RayOutputStagingBuffer = nullptr;
 
 	RayOutputBufferUAV->Release();
 	RayOutputBufferUAV = nullptr;
+
+	RayOutputBufferSRV->Release();
+	RayOutputBufferSRV = nullptr;
 
 	RayOutputBuffer->Release();
 	RayOutputBuffer = nullptr;
@@ -167,6 +198,9 @@ void BakeEngine::Dispose()
 
 	delete GenerateRaysConstantBuffer;
 	GenerateRaysConstantBuffer = nullptr;
+
+	ProcessIntersectionsComputeShader->Release();
+	ProcessIntersectionsComputeShader = nullptr;
 
 	GenerateRaysComputeShader->Release();
 	GenerateRaysComputeShader = nullptr;
@@ -203,18 +237,14 @@ struct DepthStencilPixel
 
 struct ResultValue
 {
-	float Total = 0.0f;
-	float Samples = 0;
+	int QuantizedTotal = 0;
+	int QuantizedTotalWeight = 0;
 
-	void Add(float value, float weight) {
-		this->Total += value * weight;
-		this->Samples += weight;
-	}
-
-	float GetAverage() {
-		if (this->Samples == 0)
-			return 0.0f;
-		return this->Total / this->Samples;
+	int GetAverage()
+	{
+		if (this->QuantizedTotalWeight == 0)
+			return 0;
+		return (QuantizedTotal * 255) / QuantizedTotalWeight;
 	}
 };
 
@@ -260,8 +290,6 @@ void BakeEngine::Bake(Scene* scene)
 	Renderer::SwapChain->Present(1, 0);
 
 	// Step 0: Upload the compute shader settings!
-	GenerateRaysConstantBuffer->Update(Renderer::ImmediateContext, { sampleCount });
-
 	// Generate hemisphere
 	Vector3* hemisphere = new Vector3[rayChunkSize];
 	if (!randomizeRays) {
@@ -341,6 +369,9 @@ void BakeEngine::Bake(Scene* scene)
 		ID3D11Texture2D* DepthStencilBuffer = nullptr; // D24S8 (Depth Unused, Stencil)
 		ID3D11Texture2D* DepthStencilStaging = nullptr;
 		ID3D11DepthStencilView* DepthStencilBufferDSV = nullptr;
+		ID3D11Buffer* ResultBuffer = nullptr;
+		ID3D11UnorderedAccessView* ResultBufferUAV = nullptr;
+		ID3D11Buffer* ResultStagingBuffer = nullptr;
 
 		D3D11_TEXTURE2D_DESC texdesc = { };
 		texdesc.ArraySize = 1;
@@ -383,17 +414,36 @@ void BakeEngine::Bake(Scene* scene)
 		texdesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 		hr = Renderer::Device->CreateTexture2D(&texdesc, nullptr, &DepthStencilStaging);
 
+		D3D11_BUFFER_DESC bufdesc = CD3D11_BUFFER_DESC((size_t)texdesc.Width * texdesc.Height * sizeof(ResultValue), D3D11_BIND_UNORDERED_ACCESS);
+		bufdesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+		bufdesc.StructureByteStride = sizeof(ResultValue);
+		hr = Renderer::Device->CreateBuffer(&bufdesc, nullptr, &ResultBuffer);
+		bufdesc.BindFlags = 0;
+		bufdesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		bufdesc.Usage = D3D11_USAGE_STAGING;
+		bufdesc.MiscFlags = 0;
+		hr = Renderer::Device->CreateBuffer(&bufdesc, nullptr, &ResultStagingBuffer);
+		D3D11_UNORDERED_ACCESS_VIEW_DESC uavdesc = { }; // CD3D11_UNORDERED_ACCESS_VIEW_DESC(D3D11_UAV_DIMENSION_BUFFER, DXGI_FORMAT_UNKNOWN, 0, (size_t)texdesc.Width* texdesc.Height);
+		uavdesc.Format = DXGI_FORMAT_UNKNOWN;
+		uavdesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+		uavdesc.Buffer.FirstElement = 0;
+		uavdesc.Buffer.NumElements = (size_t)texdesc.Width * texdesc.Height;
+		hr = Renderer::Device->CreateUnorderedAccessView(ResultBuffer, &uavdesc, &ResultBufferUAV);
+
 		float clearColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		ID3D11RenderTargetView* rtvs[] = { PositionUBufferRTV, NormalVBufferRTV };
 		Renderer::ImmediateContext->OMSetRenderTargets(2, rtvs, DepthStencilBufferDSV);
-		D3D11_VIEWPORT viewport = { 0, 0, texdesc.Width, texdesc.Height, 0.0f, 1.0f };
+		D3D11_VIEWPORT viewport = { 0, 0, (int)texdesc.Width, (int)texdesc.Height, 0.0f, 1.0f };
 		Renderer::ImmediateContext->RSSetViewports(1, &viewport);
 
 		ID3D11Buffer* vertexBuffer = nullptr;
 		UINT stride = sizeof(RenderVertex);
 		UINT offset = 0;
 
-		ResultValue* resultValues = new ResultValue[(size_t)texdesc.Width * texdesc.Height];
+		// Send options to the compute shader constants
+		GenerateRaysConstantBuffer->Update(Renderer::ImmediateContext, { sampleCount, (int)texdesc.Width, useAnyHit ? 1 : 0, falloffDistance });
+
+		//ResultValue* resultValues = new ResultValue[(size_t)texdesc.Width * texdesc.Height];
 
 		OutputDebugStringW(L"  Baking Slices...\n");
 		for (int m = 0; m < scene->GetObjectCount(); m++)
@@ -455,6 +505,7 @@ void BakeEngine::Bake(Scene* scene)
 
 						texels.clear();
 						
+						OutputDebugStringW(L"        Extracting texels...\n");
 						for (int y = 0; y < texdesc.Height; y++)
 						{
 							for (int x = 0; x < texdesc.Width; x++)
@@ -508,8 +559,8 @@ void BakeEngine::Bake(Scene* scene)
 								Renderer::ImmediateContext->Unmap(TexelBuffer, 0);
 
 								Renderer::ImmediateContext->CSSetShader(GenerateRaysComputeShader, nullptr, 0);
-								ID3D11ShaderResourceView* cssrvs[] = { TexelBufferSRV, HemisphereBufferSRV };
-								Renderer::ImmediateContext->CSSetShaderResources(0, ARRAYSIZE(cssrvs), cssrvs);
+								ID3D11ShaderResourceView* grcssrvs[] = { TexelBufferSRV, HemisphereBufferSRV };
+								Renderer::ImmediateContext->CSSetShaderResources(0, ARRAYSIZE(grcssrvs), grcssrvs);
 								ID3D11UnorderedAccessView* csuavs[] = { RayOutputBufferUAV };
 								Renderer::ImmediateContext->CSSetUnorderedAccessViews(0, ARRAYSIZE(csuavs), csuavs, nullptr);
 								ID3D11Buffer* cscbs[] = { GenerateRaysConstantBuffer->GetBuffer() };
@@ -523,7 +574,7 @@ void BakeEngine::Bake(Scene* scene)
 								ray* rays = (ray*)mappedRays.pData;
 								Buffer* rayBuffer = api->CreateBuffer(chunkTexelCount * sampleCount * sizeof(ray), rays);
 
-								// Step 4: Launch jobs (In sync on background thread)
+								// Step 4: Launch jobs (In sync on background thread): (rayBuffer) -> (intersectionBuffer)
 								OutputDebugStringW(L"          Casting Rays...\n");
 								Buffer* intersectionBuffer = api->CreateBuffer(chunkTexelCount * sampleCount * sizeof(Intersection), nullptr);
 								Event* intersectionCompleteEvent = nullptr;
@@ -538,33 +589,20 @@ void BakeEngine::Bake(Scene* scene)
 								intersectionMapCompleteEvent->Wait();
 
 								// Read ray distances and store the resulting radiances in TextureBakeData.Values
-								for (int j = startTexel; j < startTexel + chunkTexelCount; j++)
-								{
-									TexelRasterization& texel = texels[j];
-									for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
-									{
-										ray& ray = rays[(j - startTexel) * sampleCount + sampleIndex];
-										Intersection& intersection = intersectionData[(j - startTexel) * sampleCount + sampleIndex];
-										float weight = texel.Normal.x * ray.d.x + texel.Normal.y * ray.d.y + texel.Normal.z * ray.d.z;
-										float result = 0.0f;
-										if (intersection.shapeid != kNullId && (intersection.uvwt.w < falloffDistance || useAnyHit))
-										{
-											if (useAnyHit)
-											{
-												result = 0.0f;
-											}
-											else
-											{
-												result = DistanceToRadiance(intersection.uvwt.w, falloffDistance);
-											}
-										}
-										else
-										{
-											result = 1.0f; // DistanceToRadiance(falloffDistance, falloffDistance);
-										}
-										resultValues[texel.TexelY * texdesc.Width + texel.TexelX].Add(result, weight);
-									}
-								}
+								//   Upload the intersections
+								D3D11_MAPPED_SUBRESOURCE mappedIntersections = { };
+								Renderer::ImmediateContext->Map(IntersectionBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedIntersections);
+								memcpy(mappedIntersections.pData, (void*)intersectionData, chunkTexelCount * sampleCount * sizeof(Intersection));
+								Renderer::ImmediateContext->Unmap(IntersectionBuffer, 0);
+								//   Run compute shader: ProcessIntersectionsComputeShader(TexelBufferSRV, IntersectionBufferSRV, RayOutputBufferSRV) -> (ResultBufferUAV)
+								Renderer::ImmediateContext->CSSetShader(ProcessIntersectionsComputeShader, nullptr, 0);
+								Renderer::ImmediateContext->CSSetUnorderedAccessViews(0, 1, &ResultBufferUAV, nullptr);
+								ID3D11ShaderResourceView* picssrvs[] = { TexelBufferSRV, IntersectionBufferSRV, RayOutputBufferSRV };
+								Renderer::ImmediateContext->CSSetShaderResources(0, ARRAYSIZE(picssrvs), picssrvs);
+								// (Keep the same constant buffer as last time)
+								Renderer::ImmediateContext->Dispatch(chunkTexelCount, 1, 1);
+								ID3D11ShaderResourceView* noSRV = nullptr;
+								Renderer::ImmediateContext->CSSetShaderResources(2, 1, &noSRV);
 
 								Event* intersectionUnmapCompleteEvent = nullptr;
 								api->UnmapBuffer(intersectionBuffer, intersectionData, &intersectionUnmapCompleteEvent);
@@ -593,18 +631,25 @@ void BakeEngine::Bake(Scene* scene)
 		
 		// Step 6: Merge data
 		OutputDebugStringW(L"  Generating Image...\n");
+		Renderer::ImmediateContext->CopyResource(ResultStagingBuffer, ResultBuffer);
+		D3D11_MAPPED_SUBRESOURCE mappedResults = { };
+		Renderer::ImmediateContext->Map(ResultStagingBuffer, 0, D3D11_MAP_READ, 0, &mappedResults);
+		ResultValue* resultValues = (ResultValue*)mappedResults.pData;
 		unsigned char* textureData = material->GetAOTexture()->GetData();
 		for (int y = 0; y < texdesc.Height; y++)
 		{
 			for (int x = 0; x < texdesc.Width; x++)
 			{
-				unsigned char value = (resultValues[(size_t)y * texdesc.Width + x].GetAverage()) * 0xFF;
+				unsigned char value = (resultValues[(size_t)y * texdesc.Width + x].GetAverage())/* * 0xFF*/;
 				textureData[(((size_t)y * texdesc.Width + x) * material->GetAOTexture()->GetChannelCount()) * material->GetAOTexture()->GetBytesPerChannel()] = value;
 				//textureData[(((size_t)y * texdesc.Width + x) * material->GetAOTexture()->GetChannelCount() + 1) * material->GetAOTexture()->GetBytesPerChannel()] = value;
 				//textureData[(((size_t)y * texdesc.Width + x) * material->GetAOTexture()->GetChannelCount() + 2) * material->GetAOTexture()->GetBytesPerChannel()] = value;
 			}
 		}
-		delete[] resultValues;
+		Renderer::ImmediateContext->Unmap(ResultStagingBuffer, 0);
+		ResultBufferUAV->Release();
+		ResultStagingBuffer->Release();
+		ResultBuffer->Release();
 		material->GetAOTexture()->RefreshPreview();
 	}
 

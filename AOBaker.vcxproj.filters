@@ -239,6 +239,8 @@
     <FxCompile Include="Shaders\RasterizeVertexShader.hlsl" />
     <FxCompile Include="Shaders\GenerateRaysComputeShader.hlsl" />
     <FxCompile Include="Shaders\ProcessIntersectionsComputeShader.hlsl" />
+    <FxCompile Include="Shaders\PostprocessPixelShader.hlsl" />
+    <FxCompile Include="Shaders\PostprocessVertexShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SimpleMath.inl">

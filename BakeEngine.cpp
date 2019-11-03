@@ -16,6 +16,7 @@ const bool randomizeRays = false;
 const bool useAnyHit = true; // UseAnyHit means no max AO distance - any hit, no matter how far away, counts as occluded.
 const int rayChunkSize = 0xFFFFFF;
 const int bleedDistance = 5;
+const int denoiseDistance = 3;
 
 ID3D11DepthStencilState* LayerDSS = nullptr;
 ID3D11RasterizerState* NoCullRS = nullptr;
@@ -91,7 +92,7 @@ struct PostprocessConstants
 	int ResolutionX;
 	int ResolutionY;
 	int BleedDistance;
-	int _Padding;
+	int DenoiseDistance;
 };
 ConstantBuffer<PostprocessConstants>* PostprocessConstantBuffer = nullptr;
 
@@ -680,12 +681,11 @@ void BakeEngine::Bake(Scene* scene)
 		}
 		
 		// HACK: Get frame to show on graphics analyzer
-		//MessageBoxA(0, "Click the capture frame button!", "Dev", 0);
+		MessageBoxA(0, "Click the capture frame button!", "Dev", 0);
 		Renderer::SwapChain->Present(1, 0);
-		// Step 6: Merge data
-		// TODO: Replace this step with version on GPU: PostprocessShader(ResultBuffer, NormalVBuffer) -> (FinalTexture)
+		// Step 6: Merge data - PostprocessShader(ResultBuffer, NormalVBuffer) -> (FinalTexture)
 		OutputDebugStringW(L"  Generating Image...\n");
-		PostprocessConstantBuffer->Update(Renderer::ImmediateContext, { (int)texdesc.Width, (int)texdesc.Height, bleedDistance, 0 });
+		PostprocessConstantBuffer->Update(Renderer::ImmediateContext, { (int)texdesc.Width, (int)texdesc.Height, bleedDistance, denoiseDistance });
 		Renderer::ImmediateContext->IASetInputLayout(PostprocessShader->GetInputLayout());
 		UINT postprocessStride = sizeof(PostprocessVertex);
 		UINT postprocessOffset = 0;
